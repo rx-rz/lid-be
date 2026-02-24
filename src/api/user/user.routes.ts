@@ -207,19 +207,20 @@ export const userRoutes = new Elysia({ prefix: "/api/v1", name: "routes.user" })
 
   .use(
     rateLimit({
-      duration: 60000,
-      max: 100,
-      errorResponse: new Response(
-        JSON.stringify({ error: "Too many requests, slow down!" }),
-        { status: 429, headers: { "Content-Type": "application/json" } },
-      ),
+      generator: (req, server) => {
+
+        const forwardedFor = req.headers.get("x-forwarded-for");
+        if (forwardedFor) {
+          return forwardedFor.split(",")[0].trim();
+        }
+        return server?.requestIP(req)?.address ?? "127.0.0.1";
+      },
     }),
   )
   .use(blockMiddleware)
   .get(
     "/users",
     async ({ query, set }) => {
-
       let parsedRadius: number[];
       let parsedAge: number[];
 
@@ -264,7 +265,7 @@ export const userRoutes = new Elysia({ prefix: "/api/v1", name: "routes.user" })
         query.userId,
         {
           currentUserId: query.userId,
-          blockedUserIds: [], 
+          blockedUserIds: [],
           gender: parsedGender,
           activity: query.activity as "justJoined" | undefined,
           country: query.country?.toUpperCase(),
@@ -316,7 +317,7 @@ export const userRoutes = new Elysia({ prefix: "/api/v1", name: "routes.user" })
         200: t.Object({
           users: t.Array(t.Any()),
         }),
-        400: FailResponse, 
+        400: FailResponse,
         422: FailResponse,
       },
       detail: {
