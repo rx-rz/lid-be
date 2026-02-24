@@ -1,0 +1,35 @@
+services:
+  db:
+    image: postgres:18.1
+    container_name: diaspora-postgres
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: diaspora_db
+      # Tell PG 18 exactly where to put the data inside the mount
+      PGDATA: /var/lib/postgresql/data/pgdata
+    ports:
+      - "5433:5432"
+    volumes:
+      # Mount to the parent directory (Fixes the PG 18+ warning)
+      - diaspora_pg_data:/var/lib/postgresql
+
+  drizzle-studio:
+    image: node:20-alpine
+    container_name: diaspora-drizzle-studio
+    working_dir: /app
+    volumes:
+      - .:/app
+    environment:
+      DATABASE_URL: postgresql://postgres:password@db:5432/diaspora_db
+    ports:
+      - "4984:4984"
+    command: >
+      sh -c "npm install -g drizzle-kit && drizzle-kit studio --port 4984 --host 0.0.0.0"
+    depends_on:
+      - db
+
+volumes:
+  # Renamed the volume just to guarantee a 100% fresh start
+  diaspora_pg_data:
