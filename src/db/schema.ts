@@ -18,7 +18,7 @@ import {
 import { relations } from "drizzle-orm/relations";
 import { InferEnum } from "drizzle-orm";
 
-export const genderEnum = pgEnum("gender", ["man", "woman", "nonbinary"]);
+export const genderEnum = pgEnum("gender", ["MAN", "WOMAN", "NONBINARY"]);
 export const subscriptionEnum = pgEnum("subscription_type", [
   "free",
   "premium",
@@ -49,7 +49,10 @@ export const usersTable = pgTable(
     subscriptionType: subscriptionEnum("subscription_type").default("free"),
     phone: varchar("phone", { length: 11 }),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
-    updatedAt: timestamp("updated_at").$onUpdate(() => new Date()),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow()
+      .$onUpdate(() => new Date()),
     fcmToken: text("fcm_token"),
     streamToken: text("stream_token"),
   },
@@ -100,8 +103,9 @@ export const preferencesTable = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
       .notNull(),
-    updatedAt: timestamp("updated_at")
+    updatedAt: timestamp("updated_at", { withTimezone: true })
       .notNull()
+      .defaultNow()
       .$onUpdate(() => new Date()),
 
     interests: text("interests").array(),
@@ -167,7 +171,10 @@ export const imagesTable = pgTable("images", {
   imageUrl: text("image_url").notNull(),
   order: integer("order").notNull().default(1),
   createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").$onUpdate(() => new Date()),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .notNull()
+    .defaultNow()
+    .$onUpdate(() => new Date()),
 });
 
 export const imagesRelations = relations(imagesTable, ({ one }) => ({
@@ -468,11 +475,14 @@ export const rouletteSessionsTable = pgTable(
       .notNull()
       .references(() => usersTable.id, { onDelete: "cascade" }),
     status: varchar("status", { length: 20 }).$type<
-      "waiting" | "matched" | "ended"
+      "waiting" | "matched" | "completed"
     >(),
     interests: text("interests").array(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
-    updatedAt: timestamp("updated_at").$onUpdate(() => new Date()),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow()
+      .$onUpdate(() => new Date()),
     previousPartners: text("previous_partners").array(),
   },
   (table) => [uniqueIndex("unique_roulette_user_idx").on(table.userId)],
@@ -483,10 +493,10 @@ export type SelectRouletteSession = typeof rouletteSessionsTable.$inferSelect;
 
 export const rouletteMatchesTable = pgTable("roulette_matches", {
   id: uuid("id").defaultRandom().primaryKey(),
-  session1Id: uuid("session1_id") // <-- FIXED TO UUID
+  session1Id: uuid("session1_id")
     .notNull()
     .references(() => rouletteSessionsTable.id, { onDelete: "cascade" }),
-  session2Id: uuid("session2_id") // <-- FIXED TO UUID
+  session2Id: uuid("session2_id")
     .notNull()
     .references(() => rouletteSessionsTable.id, { onDelete: "cascade" }),
   startedAt: timestamp("started_at").defaultNow().notNull(),
@@ -510,7 +520,10 @@ export const reportsTable = pgTable("reports", {
   details: text("details"),
   status: reportStatusEnum("status").default("pending"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").$onUpdate(() => new Date()),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .notNull()
+    .defaultNow()
+    .$onUpdate(() => new Date()),
 });
 
 export type InsertReport = typeof reportsTable.$inferInsert;

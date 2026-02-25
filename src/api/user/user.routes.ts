@@ -30,7 +30,6 @@ const UserSchema = t.Object({
 
 export const userRoutes = new Elysia({ prefix: "/api/v1", name: "routes.user" })
   .use(clerkPlugin())
-
   .post(
     "/user",
     async ({ body, set }) => {
@@ -63,7 +62,6 @@ export const userRoutes = new Elysia({ prefix: "/api/v1", name: "routes.user" })
       },
     },
   )
-
   .patch(
     "/user/:id",
     async ({ params: { id }, body, set }) => {
@@ -85,9 +83,9 @@ export const userRoutes = new Elysia({ prefix: "/api/v1", name: "routes.user" })
         birthday: t.Optional(t.String()),
         gender: t.Optional(
           t.Union([
-            t.Literal("man"),
-            t.Literal("woman"),
-            t.Literal("nonbinary"),
+            t.Literal("MAN"),
+            t.Literal("WOMAN"),
+            t.Literal("NONBINARY"),
           ]),
         ),
         email: t.Optional(t.String()),
@@ -208,7 +206,6 @@ export const userRoutes = new Elysia({ prefix: "/api/v1", name: "routes.user" })
   .use(
     rateLimit({
       generator: (req, server) => {
-
         const forwardedFor = req.headers.get("x-forwarded-for");
         if (forwardedFor) {
           return forwardedFor.split(",")[0].trim();

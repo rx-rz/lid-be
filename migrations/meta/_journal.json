@@ -8,6 +8,20 @@
       "when": 1771929328560,
       "tag": "0000_perpetual_anita_blake",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1772050458065,
+      "tag": "0001_thick_revanche",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1772050997606,
+      "tag": "0002_wealthy_sharon_carter",
+      "breakpoints": true
     }
   ]
 }
