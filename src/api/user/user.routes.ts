@@ -78,11 +78,29 @@ export const userRoutes = new Elysia({ prefix: "/api/v1", name: "routes.user" })
         return data;
       } catch (error: any) {
         set.status = 500;
-        return { error: error.message };
+        return { error: error };
       }
     },
     {
       params: t.Object({ id: t.String() }),
+      transform({ body }) {
+        if (body && body.birthday === "") {
+          body.birthday = undefined;
+        }
+        if(body && body.phone === "") {
+          body.phone = undefined;
+        }
+        if(body && body.email === "") {
+          body.email = undefined;
+        }
+        if(body && body.displayName === "") {
+          body.displayName = undefined;
+        }
+        if(body && body.lastLogin === "") {
+          body.lastLogin = undefined;
+        }
+
+      },
       body: t.Object({
         birthday: t.Optional(t.String()),
         gender: t.Optional(
