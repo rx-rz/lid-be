@@ -29,7 +29,7 @@ const UserSchema = t.Object({
 });
 
 export const userRoutes = new Elysia({ prefix: "/api/v1", name: "routes.user" })
-
+  .use(clerkPlugin())
   .post(
     "/user",
     async ({ body, set }) => {
@@ -62,11 +62,12 @@ export const userRoutes = new Elysia({ prefix: "/api/v1", name: "routes.user" })
       },
     },
   )
-  .use(clerkPlugin())
+
   .patch(
     "/user/:id",
     async ({ params: { id }, body, set }) => {
       try {
+        console.log({ id });
         const data = await userService.updateUser(id, {
           ...body,
           lastLogin: body.lastLogin ? new Date(body.lastLogin) : undefined,
@@ -78,7 +79,7 @@ export const userRoutes = new Elysia({ prefix: "/api/v1", name: "routes.user" })
         return data;
       } catch (error: any) {
         set.status = 500;
-        console.log(error)
+        console.log(error);
         return { error: error.message };
       }
     },
@@ -88,19 +89,18 @@ export const userRoutes = new Elysia({ prefix: "/api/v1", name: "routes.user" })
         if (body && body.birthday === "") {
           body.birthday = undefined;
         }
-        if(body && body.phone === "") {
+        if (body && body.phone === "") {
           body.phone = undefined;
         }
-        if(body && body.email === "") {
+        if (body && body.email === "") {
           body.email = undefined;
         }
-        if(body && body.displayName === "") {
+        if (body && body.displayName === "") {
           body.displayName = undefined;
         }
-        if(body && body.lastLogin === "") {
+        if (body && body.lastLogin === "") {
           body.lastLogin = undefined;
         }
-
       },
       body: t.Object({
         birthday: t.Optional(t.String()),

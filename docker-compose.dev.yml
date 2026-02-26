@@ -11,6 +11,8 @@ services:
       PGDATA: /var/lib/postgresql/data/pgdata
     ports:
       - "5433:5432"
+    networks:
+      - app-network
     volumes:
       # Mount to the parent directory (Fixes the PG 18+ warning)
       - diaspora_pg_data:/var/lib/postgresql
@@ -29,7 +31,24 @@ services:
       sh -c "npm install -g drizzle-kit && drizzle-kit studio --port 4984 --host 0.0.0.0"
     depends_on:
       - db
-
+  drizzle-gateway_1:
+    image: ghcr.io/drizzle-team/gateway:latest
+    container_name: drizzle-diaspora-be
+    restart: always
+    ports:
+      - "4983:4983"
+    networks:
+      - app-network
+    environment:
+      PORT: 4983
+      STORE_PATH: /app
+      MASTERPASS: your_master_password
+    volumes:
+      - drizzle-gateway_1:/app
+networks:
+  app-network:
+      driver: bridge
 volumes:
   # Renamed the volume just to guarantee a 100% fresh start
   diaspora_pg_data:
+  drizzle-gateway_1:

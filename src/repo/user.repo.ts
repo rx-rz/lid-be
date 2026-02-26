@@ -58,6 +58,7 @@ export const userRepo = {
   },
 
   updateUser: async (id: string, data: Partial<InsertUser>) => {
+    console.log({id})
     const [user] = await db
       .update(usersTable)
       .set(data)
