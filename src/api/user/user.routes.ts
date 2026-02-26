@@ -78,7 +78,8 @@ export const userRoutes = new Elysia({ prefix: "/api/v1", name: "routes.user" })
         return data;
       } catch (error: any) {
         set.status = 500;
-        return { error: error };
+        console.log(error)
+        return { error: error.message };
       }
     },
     {
