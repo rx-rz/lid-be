@@ -29,7 +29,7 @@ const UserSchema = t.Object({
 });
 
 export const userRoutes = new Elysia({ prefix: "/api/v1", name: "routes.user" })
-  .use(clerkPlugin())
+
   .post(
     "/user",
     async ({ body, set }) => {
@@ -62,11 +62,15 @@ export const userRoutes = new Elysia({ prefix: "/api/v1", name: "routes.user" })
       },
     },
   )
+  .use(clerkPlugin())
   .patch(
     "/user/:id",
     async ({ params: { id }, body, set }) => {
       try {
-        const data = await userService.updateUser(id, body as any);
+        const data = await userService.updateUser(id, {
+          ...body,
+          lastLogin: body.lastLogin ? new Date(body.lastLogin) : undefined,
+        });
         if (!data) {
           set.status = 404;
           return { error: "User not found or not updated" };
