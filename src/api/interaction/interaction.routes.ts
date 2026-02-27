@@ -1,5 +1,6 @@
 import { Elysia, t } from "elysia";
 import { interactionService } from "./interaction.services";
+
 export const interactionRoutes = new Elysia()
   .post(
     "/likes",

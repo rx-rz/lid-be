@@ -17,13 +17,13 @@ import { helpRoutes } from "./api/help/help.routes";
 import { rouletteRoutes } from "./api/roulette/roulette.routes";
 import { errorMiddleware } from "./middleware/error";
 
-const app = new Elysia()
+const app = new Elysia({ prefix: "/api/v1" })
   .use(
     openapi({
       references: fromTypes(),
 
       scalar: {
-        theme: "moon"
+        theme: "moon",
       },
       documentation: {
         info: {

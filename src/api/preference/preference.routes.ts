@@ -34,7 +34,7 @@ export const preferenceRoutes = new Elysia({ prefix: "/preference" })
         body.lookingToDate,
       );
       if (!data) throw new Error("Preference not created");
-      set.status = 201;
+      set.status = "Created";
       return data;
     },
     {

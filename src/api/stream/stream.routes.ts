@@ -1,7 +1,10 @@
 import { Elysia, t } from "elysia";
 import { streamService } from "./stream.services";
+import { clerkPlugin } from "elysia-clerk";
 
 export const streamRoutes = new Elysia({ prefix: "/stream" })
+// TODO: Confirm he uses authentication here
+  // .use(clerkPlugin())
   .post("/token", ({ body }) => streamService.generateToken(body), {
     body: t.Object({
       userId: t.String(),

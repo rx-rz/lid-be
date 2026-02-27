@@ -3,7 +3,6 @@ import { profileViewsService } from "./profile-views.services";
 import { clerkPlugin } from "elysia-clerk";
 
 export const profileViewsRoutes = new Elysia({ prefix: "/profile-views" })
-  // NOTE: Apply your Elysia Clerk Auth Middleware here (e.g., .use(clerkPlugin()))
   .use(clerkPlugin())
   .post(
     "/",

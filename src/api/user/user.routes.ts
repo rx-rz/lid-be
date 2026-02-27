@@ -28,7 +28,7 @@ const UserSchema = t.Object({
   streamToken: t.Union([t.String(), t.Null()]),
 });
 
-export const userRoutes = new Elysia({ prefix: "/api/v1", name: "routes.user" })
+export const userRoutes = new Elysia({ name: "routes.user" })
   .use(clerkPlugin())
   .post(
     "/user",

@@ -1,7 +1,9 @@
 import { Elysia, t } from "elysia";
 import { rouletteService } from "./roulette.services";
+import { clerkPlugin } from "elysia-clerk";
 
 export const rouletteRoutes = new Elysia({ prefix: "/roulette" })
+  .use(clerkPlugin())
   .post(
     "/start",
     async ({ body, set }) => {
@@ -27,8 +29,11 @@ export const rouletteRoutes = new Elysia({ prefix: "/roulette" })
       body: t.Object({
         userId: t.String(),
       }),
-      detail: { tags: ["Roulette"], summary: "Start or find video roulette match" },
-    }
+      detail: {
+        tags: ["Roulette"],
+        summary: "Start or find video roulette match",
+      },
+    },
   )
   .get(
     "/details/:userId",
@@ -47,8 +52,11 @@ export const rouletteRoutes = new Elysia({ prefix: "/roulette" })
     },
     {
       params: t.Object({ userId: t.String() }),
-      detail: { tags: ["Roulette"], summary: "Get roulette details for a user" },
-    }
+      detail: {
+        tags: ["Roulette"],
+        summary: "Get roulette details for a user",
+      },
+    },
   )
   .post(
     "/end",
@@ -62,8 +70,11 @@ export const rouletteRoutes = new Elysia({ prefix: "/roulette" })
       }
 
       try {
-        const result = await rouletteService.endSession(body.matchId, body.userId);
-        
+        const result = await rouletteService.endSession(
+          body.matchId,
+          body.userId,
+        );
+
         if (!result.success && result.error === "no_active_match") {
           set.status = 404;
         }
@@ -85,7 +96,7 @@ export const rouletteRoutes = new Elysia({ prefix: "/roulette" })
         userId: t.Optional(t.String()),
       }),
       detail: { tags: ["Roulette"], summary: "End roulette match manually" },
-    }
+    },
   )
   .get(
     "/status/:userId",
@@ -104,8 +115,11 @@ export const rouletteRoutes = new Elysia({ prefix: "/roulette" })
     },
     {
       params: t.Object({ userId: t.String() }),
-      detail: { tags: ["Roulette"], summary: "Get session status with enhanced details" },
-    }
+      detail: {
+        tags: ["Roulette"],
+        summary: "Get session status with enhanced details",
+      },
+    },
   )
   .post(
     "/cancel",
@@ -124,8 +138,11 @@ export const rouletteRoutes = new Elysia({ prefix: "/roulette" })
     },
     {
       body: t.Object({ userId: t.String() }),
-      detail: { tags: ["Roulette"], summary: "Cancel roulette search or current match" },
-    }
+      detail: {
+        tags: ["Roulette"],
+        summary: "Cancel roulette search or current match",
+      },
+    },
   )
   .get(
     "/history/:userId",
@@ -147,7 +164,7 @@ export const rouletteRoutes = new Elysia({ prefix: "/roulette" })
       params: t.Object({ userId: t.String() }),
       query: t.Object({ limit: t.Optional(t.String()) }),
       detail: { tags: ["Roulette"], summary: "Get match history" },
-    }
+    },
   )
   .post(
     "/cleanup",
@@ -166,7 +183,7 @@ export const rouletteRoutes = new Elysia({ prefix: "/roulette" })
     },
     {
       detail: { tags: ["Roulette"], summary: "Cleanup expired matches" },
-    }
+    },
   )
   .get(
     "/stats",
@@ -184,6 +201,9 @@ export const rouletteRoutes = new Elysia({ prefix: "/roulette" })
       }
     },
     {
-      detail: { tags: ["Roulette"], summary: "Get analytics and statistics for roulette system" },
-    }
+      detail: {
+        tags: ["Roulette"],
+        summary: "Get analytics and statistics for roulette system",
+      },
+    },
   );

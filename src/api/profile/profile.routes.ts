@@ -3,7 +3,7 @@ import { profileService } from "./profile.services";
 
 export const profileRoutes = new Elysia({ prefix: "/profile" })
   .post(
-    "/",
+    "",
     async ({ body, set }) => {
       try {
         const profile = await profileService.createProfile(

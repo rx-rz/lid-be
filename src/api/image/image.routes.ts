@@ -1,8 +1,11 @@
 import { Elysia, t } from "elysia";
 import { imageService } from "./image.services";
-export const imageRoutes = new Elysia()
+import { clerkPlugin } from "elysia-clerk";
+
+export const imageRoutes = new Elysia({ prefix: "/images" })
+  .use(clerkPlugin())
   .get(
-    "/image/upload-url",
+    "/upload-url",
     async () => {
       return imageService.generateUploadSignature();
     },
@@ -11,7 +14,7 @@ export const imageRoutes = new Elysia()
     },
   )
   .get(
-    "/images/:userId",
+    "/:userId",
     async ({ params: { userId } }) => {
       return await imageService.getUserImages(userId);
     },
@@ -21,7 +24,7 @@ export const imageRoutes = new Elysia()
     },
   )
   .post(
-    "/images",
+    "",
     async ({ body, set }) => {
       const processedImages = await imageService.processAndSyncImages(
         body.userId,
