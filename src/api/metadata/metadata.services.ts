@@ -1,7 +1,7 @@
 import { INTERESTS } from "../../constants";
 
 export const metadataService = {
-  getInterests: async () => {
+  getInterests: () => {
     return INTERESTS;
   },
 };
