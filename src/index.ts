@@ -16,6 +16,7 @@ import { interestRoutes } from "./api/interest/interest.routes";
 import { helpRoutes } from "./api/help/help.routes";
 import { rouletteRoutes } from "./api/roulette/roulette.routes";
 import { errorMiddleware } from "./middleware/error";
+
 const app = new Elysia()
   .use(
     openapi({

@@ -1,5 +1,6 @@
 import { Elysia, t } from "elysia";
 import { preferenceService } from "./preference.services";
+import { clerkPlugin } from "elysia-clerk";
 
 const PreferenceSchema = t.Object({
   lookingToDate: t.Optional(t.Array(t.String())),
@@ -24,8 +25,9 @@ const PreferenceSchema = t.Object({
 });
 
 export const preferenceRoutes = new Elysia({ prefix: "/preference" })
+  .use(clerkPlugin())
   .post(
-    "/",
+    "",
     async ({ body, set }) => {
       const data = await preferenceService.create(
         body.userId,
@@ -67,7 +69,6 @@ export const preferenceRoutes = new Elysia({ prefix: "/preference" })
   .get(
     "/:id",
     async ({ params: { id }, set }) => {
-
       const data = await preferenceService.get(id);
       if (!data) {
         set.status = 404;

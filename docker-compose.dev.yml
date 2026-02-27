@@ -17,20 +17,6 @@ services:
       # Mount to the parent directory (Fixes the PG 18+ warning)
       - diaspora_pg_data:/var/lib/postgresql
 
-  drizzle-studio:
-    image: node:20-alpine
-    container_name: diaspora-drizzle-studio
-    working_dir: /app
-    volumes:
-      - .:/app
-    environment:
-      DATABASE_URL: postgresql://postgres:password@db:5432/diaspora_db
-    ports:
-      - "4984:4984"
-    command: >
-      sh -c "npm install -g drizzle-kit && drizzle-kit studio --port 4984 --host 0.0.0.0"
-    depends_on:
-      - db
   drizzle-gateway_1:
     image: ghcr.io/drizzle-team/gateway:latest
     container_name: drizzle-diaspora-be
@@ -39,6 +25,8 @@ services:
       - "4983:4983"
     networks:
       - app-network
+    depends_on:
+      - db
     environment:
       PORT: 4983
       STORE_PATH: /app
