@@ -17,6 +17,7 @@ import { helpRoutes } from "./api/help/help.routes";
 import { rouletteRoutes } from "./api/roulette/roulette.routes";
 import { errorMiddleware } from "./middleware/error";
 import { paymentRoutes } from "./api/payment/payment.routes";
+import { interactionRoutes } from "./api/interaction/interaction.routes";
 
 const app = new Elysia({ prefix: "/api/v1" })
   .use(
@@ -43,6 +44,7 @@ const app = new Elysia({ prefix: "/api/v1" })
   .use(imageRoutes)
   .use(imagesRoutes)
   .use(locationRoutes)
+  .use(interactionRoutes)
   .use(blockRoutes)
   .use(boostRoutes)
   .use(favoriteRoutes)
