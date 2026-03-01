@@ -1,3 +1,4 @@
+import { clerkClient } from "elysia-clerk";
 import { InsertUser } from "../../db/schema";
 import { locationRepo } from "../../repo/location.repo";
 import { GetUsersFilters, userRepo } from "../../repo/user.repo";
@@ -103,6 +104,7 @@ export const userService = {
   },
 
   deleteUserAccount: async (id: string) => {
+    await clerkClient.users.deleteUser(id);
     return await userRepo.deleteUser(id);
   },
 
