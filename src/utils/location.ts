@@ -50,8 +50,8 @@ export async function getTravelTimeFromAPI(
     }
 
     return {
-      distanceKm: element.distance.value / 1000, // Convert meters to km
-      travelTimeMinutes: Math.ceil(element.duration.value / 60), // Convert seconds to minutes
+      distanceKm: element.distance.value / 1000, 
+      travelTimeMinutes: Math.ceil(element.duration.value / 60), 
     };
   } catch (error) {
     console.error("Error calling Google Maps API:", error);
@@ -88,7 +88,7 @@ export async function getCountryFromCoordinates(
     const countryData = Object.values(countryIndex.countryFlagEmoji).find(
       (country) => country.code === countryCode,
     );
-
+    console.log({countryComponent})
     return {
       name: countryComponent.long_name,
       abrv: countryCode,

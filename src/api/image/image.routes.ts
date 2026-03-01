@@ -2,7 +2,7 @@ import { Elysia, t } from "elysia";
 import { imageService } from "./image.services";
 import { clerkPlugin } from "elysia-clerk";
 
-export const imageRoutes = new Elysia({ prefix: "/images" })
+export const imagesRoutes = new Elysia({ prefix: "/image" })
   .use(clerkPlugin())
   .get(
     "/upload-url",
@@ -12,17 +12,20 @@ export const imageRoutes = new Elysia({ prefix: "/images" })
     {
       detail: { tags: ["Images"], summary: "Get Cloudinary Upload Signature" },
     },
-  )
-  .get(
-    "/:userId",
-    async ({ params: { userId } }) => {
-      return await imageService.getUserImages(userId);
-    },
-    {
-      params: t.Object({ userId: t.String() }),
-      detail: { tags: ["Images"], summary: "Get User Images" },
-    },
-  )
+  );
+export const imageRoutes = new Elysia({ prefix: "/images" })
+  .use(clerkPlugin())
+
+  // .get(
+  //   "/:userId",
+  //   async ({ params: { userId } }) => {
+  //     return await imageService.getUserImages(userId);
+  //   },
+  //   {
+  //     params: t.Object({ userId: t.String() }),
+  //     detail: { tags: ["Images"], summary: "Get User Images" },
+  //   },
+  // )
   .post(
     "",
     async ({ body, set }) => {

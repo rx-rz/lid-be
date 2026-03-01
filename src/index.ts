@@ -5,7 +5,7 @@ import { userRoutes } from "./api/user/user.routes";
 import { profileRoutes } from "./api/profile/profile.routes";
 import { profileViewsRoutes } from "./api/profile/profile-views.routes";
 import { preferenceRoutes } from "./api/preference/preference.routes";
-import { imageRoutes } from "./api/image/image.routes";
+import { imageRoutes, imagesRoutes } from "./api/image/image.routes";
 import { locationRoutes } from "./api/location/location.routes";
 import { blockRoutes } from "./api/block/block.routes";
 import { boostRoutes } from "./api/boost/boost.routes";
@@ -16,6 +16,7 @@ import { interestRoutes } from "./api/interest/interest.routes";
 import { helpRoutes } from "./api/help/help.routes";
 import { rouletteRoutes } from "./api/roulette/roulette.routes";
 import { errorMiddleware } from "./middleware/error";
+import { paymentRoutes } from "./api/payment/payment.routes";
 
 const app = new Elysia({ prefix: "/api/v1" })
   .use(
@@ -38,7 +39,9 @@ const app = new Elysia({ prefix: "/api/v1" })
   .use(profileRoutes)
   .use(profileViewsRoutes)
   .use(preferenceRoutes)
+  .use(paymentRoutes)
   .use(imageRoutes)
+  .use(imagesRoutes)
   .use(locationRoutes)
   .use(blockRoutes)
   .use(boostRoutes)
