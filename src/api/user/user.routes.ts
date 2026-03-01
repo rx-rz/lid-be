@@ -235,17 +235,17 @@ export const userRoutes = new Elysia({ name: "routes.user" })
     },
   )
 
-  .use(
-    rateLimit({
-      generator: (req, server) => {
-        const forwardedFor = req.headers.get("x-forwarded-for");
-        if (forwardedFor) {
-          return forwardedFor.split(",")[0].trim();
-        }
-        return server?.requestIP(req)?.address ?? "127.0.0.1";
-      },
-    }),
-  )
+  // .use(
+  //   rateLimit({
+  //     generator: (req, server) => {
+  //       const forwardedFor = req.headers.get("x-forwarded-for");
+  //       if (forwardedFor) {
+  //         return forwardedFor.split(",")[0].trim();
+  //       }
+  //       return server?.requestIP(req)?.address ?? "127.0.0.1";
+  //     },
+  //   }),
+  // )
   .use(blockMiddleware)
   .get(
     "/users",
