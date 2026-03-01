@@ -1,6 +1,20 @@
-import { and, desc, eq, inArray, ne, not, or, sql } from "drizzle-orm";
+import {
+  and,
+  desc,
+  eq,
+  inArray,
+  ne,
+  not,
+  notExists,
+  or,
+  sql,
+} from "drizzle-orm";
 import { db } from "../db/db";
-import { rouletteMatchesTable, rouletteSessionsTable } from "../db/schema";
+import {
+  matchesTable,
+  rouletteMatchesTable,
+  rouletteSessionsTable,
+} from "../db/schema";
 
 export const rouletteRepo = {
   findSessionByUserId: async (userId: string) => {
@@ -46,7 +60,10 @@ export const rouletteRepo = {
     return session;
   },
 
-  updateSession: async (sessionId: string, data: Partial<typeof rouletteSessionsTable.$inferInsert>) => {
+  updateSession: async (
+    sessionId: string,
+    data: Partial<typeof rouletteSessionsTable.$inferInsert>,
+  ) => {
     const [updated] = await db
       .update(rouletteSessionsTable)
       .set({ ...data, updatedAt: new Date() })
@@ -65,12 +82,29 @@ export const rouletteRepo = {
           ne(rouletteSessionsTable.userId, userId),
           previousPartners.length > 0
             ? not(inArray(rouletteSessionsTable.userId, previousPartners))
-            : sql`1=1`
-        )
+            : sql`1=1`,
+          notExists(
+            db
+              .select()
+              .from(matchesTable)
+              .where(
+                or(
+                  and(
+                    eq(matchesTable.user1Id, userId),
+                    eq(matchesTable.user2Id, rouletteSessionsTable.userId),
+                  ),
+                  and(
+                    eq(matchesTable.user1Id, rouletteSessionsTable.userId),
+                    eq(matchesTable.user2Id, userId),
+                  ),
+                ),
+              ),
+          ),
+        ),
       )
       .orderBy(rouletteSessionsTable.createdAt)
       .limit(1);
-    
+
     return partners[0];
   },
 
@@ -79,20 +113,25 @@ export const rouletteRepo = {
       .update(rouletteSessionsTable)
       .set({
         status: "matched",
-        updatedAt: new Date()
+        updatedAt: new Date(),
       })
       .where(
         and(
           eq(rouletteSessionsTable.id, partnerId),
-          eq(rouletteSessionsTable.status, "waiting")
-        )
+          eq(rouletteSessionsTable.status, "waiting"),
+        ),
       )
       .returning();
-      
+
     return updatedPartner;
   },
 
-  createMatchRecord: async (session1Id: string, session2Id: string, roomId: string, scheduledEndTime: Date) => {
+  createMatchRecord: async (
+    session1Id: string,
+    session2Id: string,
+    roomId: string,
+    scheduledEndTime: Date,
+  ) => {
     const matchId = crypto.randomUUID();
     const [match] = await db
       .insert(rouletteMatchesTable)
@@ -116,10 +155,10 @@ export const rouletteRepo = {
         and(
           or(
             eq(rouletteMatchesTable.session1Id, sessionId),
-            eq(rouletteMatchesTable.session2Id, sessionId)
+            eq(rouletteMatchesTable.session2Id, sessionId),
           ),
-          sql`ended_at IS NULL`
-        )
+          sql`ended_at IS NULL`,
+        ),
       )
       .orderBy(desc(rouletteMatchesTable.startedAt))
       .limit(1);
@@ -167,8 +206,8 @@ export const rouletteRepo = {
       .where(
         or(
           inArray(rouletteMatchesTable.session1Id, sessionIds),
-          inArray(rouletteMatchesTable.session2Id, sessionIds)
-        )
+          inArray(rouletteMatchesTable.session2Id, sessionIds),
+        ),
       )
       .orderBy(desc(rouletteMatchesTable.startedAt))
       .limit(limit);
@@ -185,10 +224,10 @@ export const rouletteRepo = {
         and(
           or(
             eq(rouletteSessionsTable.status, "waiting"),
-            eq(rouletteSessionsTable.status, "matched")
+            eq(rouletteSessionsTable.status, "matched"),
           ),
-          sql`updated_at > ${oneDayAgo}`
-        )
+          sql`updated_at > ${oneDayAgo}`,
+        ),
       );
 
     const [waitingUsers] = await db

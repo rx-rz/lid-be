@@ -195,6 +195,15 @@ export const userRoutes = new Elysia({ name: "routes.user" })
           email: t.Union([t.String(), t.Null()]),
           subscription: t.Union([t.String(), t.Null()]),
           image: t.Union([t.String(), t.Null()]),
+          location: t.Optional(
+            t.Nullable(
+              t.Object({
+                name: t.String(),
+                abrv: t.String(),
+                flag: t.String(),
+              }),
+            ),
+          ),
         }),
         404: ErrorResponse,
       },
@@ -286,26 +295,25 @@ export const userRoutes = new Elysia({ name: "routes.user" })
         {
           currentUserId: query.userId,
           blockedUserIds: [],
-          gender: parsedGender,
+          gender: parseMultiSelect(query.gender),
           activity: query.activity as "justJoined" | undefined,
           country: query.country?.toUpperCase(),
           smoking: query.smoking === "true",
           drinking: query.drinking === "true",
-          ethnicity: query.ethnicity ? decodeURI(query.ethnicity) : undefined,
-          zodiac: query.zodiac ? decodeURIComponent(query.zodiac) : undefined,
-          familyPlans: query.familyPlans
-            ? decodeURIComponent(query.familyPlans)
-            : undefined,
-          educationLevel: query.educationLevel
-            ? decodeURIComponent(query.educationLevel)
-            : undefined,
-          height: query.height
-            ? decodeURI(query.height).split("-")[1]
-            : undefined,
-          lookingFor: query.lookingFor
-            ? decodeURI(query.lookingFor)
-            : undefined,
           hasBio: query.hasBio === "true",
+          opennessToLongDistance: query.opennessToLongDistance === "true",
+          willingToRelocate: query.willingToRelocate === "true",
+          ethnicity: parseMultiSelect(query.ethnicity),
+          zodiac: parseMultiSelect(query.zodiac),
+          familyPlans: parseMultiSelect(query.familyPlans),
+          educationLevel: parseMultiSelect(query.educationLevel),
+          height: parseMultiSelect(query.height),
+          lookingFor: parseMultiSelect(query.lookingFor),
+          workoutFrequency: parseMultiSelect(query.workoutFrequency),
+          personality: parseMultiSelect(query.personality),
+          language: parseMultiSelect(query.language),
+          bodyType: parseMultiSelect(query.bodyType),
+          loveLanguage: parseMultiSelect(query.loveLanguage),
         },
         parsedRadius,
         parsedAge,
@@ -317,11 +325,12 @@ export const userRoutes = new Elysia({ name: "routes.user" })
     {
       query: t.Object({
         userId: t.String(),
-        radius: t.String({ description: "Array string, e.g., '[10, 100]'" }),
-        age: t.String({ description: "Array string, e.g., '[21, 35]'" }),
+        radius: t.String(),
+        age: t.String(),
         gender: t.Optional(t.String()),
         activity: t.Optional(t.Literal("justJoined")),
         country: t.Optional(t.String()),
+        // Advanced — now arrays as JSON strings e.g. '["Leo","Aries"]'
         smoking: t.Optional(t.String()),
         hasBio: t.Optional(t.String()),
         drinking: t.Optional(t.String()),
@@ -332,6 +341,13 @@ export const userRoutes = new Elysia({ name: "routes.user" })
         ethnicity: t.Optional(t.String()),
         educationLevel: t.Optional(t.String()),
         lookingFor: t.Optional(t.Any()),
+        workoutFrequency: t.Optional(t.String()),
+        personality: t.Optional(t.String()),
+        language: t.Optional(t.String()),
+        bodyType: t.Optional(t.String()),
+        loveLanguage: t.Optional(t.String()),
+        opennessToLongDistance: t.Optional(t.String()),
+        willingToRelocate: t.Optional(t.String()),
       }),
       response: {
         200: t.Object({
@@ -348,3 +364,13 @@ export const userRoutes = new Elysia({ name: "routes.user" })
       },
     },
   );
+
+const parseMultiSelect = (val?: string): string[] | undefined => {
+  if (!val) return undefined;
+  try {
+    const parsed = JSON.parse(decodeURIComponent(val));
+    return Array.isArray(parsed) ? parsed : [parsed];
+  } catch {
+    return [val];
+  }
+};

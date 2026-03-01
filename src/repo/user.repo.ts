@@ -23,6 +23,7 @@ import {
   imagesTable,
   paymentsTable,
   InsertUser,
+  matchesTable,
 } from "../db/schema";
 import { db } from "../db/db";
 
@@ -34,13 +35,20 @@ export type GetUsersFilters = {
   country?: string;
   smoking?: boolean;
   drinking?: boolean;
-  ethnicity?: string;
-  educationLevel?: string;
-  lookingFor?: string;
-  height?: string;
-  zodiac?: string;
-  familyPlans?: string;
+  ethnicity?: string[];
+  educationLevel?: string[];
+  lookingFor?: string[];
+  height?: string[];
+  zodiac?: string[];
+  familyPlans?: string[];
   hasBio?: boolean;
+  workoutFrequency?: string[];
+  personality?: string[];
+  language?: string[];
+  bodyType?: string[];
+  loveLanguage?: string[];
+  opennessToLongDistance?: boolean;
+  willingToRelocate?: boolean;
 };
 
 export const userRepo = {
@@ -58,7 +66,7 @@ export const userRepo = {
   },
 
   updateUser: async (id: string, data: Partial<InsertUser>) => {
-    console.log({id})
+    console.log({ id });
     const [user] = await db
       .update(usersTable)
       .set(data)
@@ -87,7 +95,7 @@ export const userRepo = {
     if (!user) return undefined;
     return { ...user, image: images[0]?.imageUrl || null };
   },
-    getUserWithFcmToken: async (id: string) => {
+  getUserWithFcmToken: async (id: string) => {
     const images = await db
       .select()
       .from(imagesTable)
@@ -170,37 +178,13 @@ export const userRepo = {
       filters.gender?.length
         ? inArray(usersTable.gender, filters.gender as any[])
         : undefined,
+
       filters.activity === "justJoined"
         ? gte(usersTable.createdAt, twentyFourHoursAgo)
         : undefined,
+
       filters.country && filters.country !== "0"
         ? eq(locationsTable.countryAbbreviation, filters.country)
-        : undefined,
-
-      filters.smoking ? eq(preferencesTable.smoking, true) : undefined,
-      filters.drinking ? eq(preferencesTable.drinking, true) : undefined,
-      filters.ethnicity
-        ? eq(preferencesTable.ethnicity, filters.ethnicity)
-        : undefined,
-      filters.zodiac ? eq(preferencesTable.zodiac, filters.zodiac) : undefined,
-      filters.familyPlans
-        ? eq(preferencesTable.familyPlans, filters.familyPlans)
-        : undefined,
-      filters.educationLevel
-        ? ilike(preferencesTable.education, `%${filters.educationLevel}%`)
-        : undefined,
-      filters.height
-        ? ilike(preferencesTable.height, `%${filters.height}%`)
-        : undefined,
-      filters.lookingFor
-        ? arrayContains(preferencesTable.lookingToDate, [filters.lookingFor])
-        : undefined,
-
-      filters.hasBio
-        ? or(
-            eq(preferencesTable.hasBio, true),
-            sql`length(${profilesTable.bio}) > 20`,
-          )
         : undefined,
 
       notExists(
@@ -211,6 +195,17 @@ export const userRepo = {
             and(
               eq(likesTable.likerId, filters.currentUserId),
               eq(likesTable.likedId, usersTable.id),
+              or(
+                gte(likesTable.likedAt, sql`now() - interval '30 days'`),
+                sql`EXISTS (
+                SELECT 1 FROM ${matchesTable}
+                WHERE (
+                  (${matchesTable.user1Id} = ${filters.currentUserId} AND ${matchesTable.user2Id} = ${usersTable.id})
+                  OR
+                  (${matchesTable.user1Id} = ${usersTable.id} AND ${matchesTable.user2Id} = ${filters.currentUserId})
+                )
+              )`,
+              ),
             ),
           ),
       ),
@@ -228,7 +223,6 @@ export const userRepo = {
       ),
     ].filter(Boolean);
 
-    // 1. Get raw users
     const rawUsers = await db
       .select({
         user: usersTable,

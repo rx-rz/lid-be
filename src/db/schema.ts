@@ -47,7 +47,7 @@ export const usersTable = pgTable(
     showGender: boolean("show_gender").default(false),
     lastLogin: timestamp("last_login", { withTimezone: true }),
     subscriptionType: subscriptionEnum("subscription_type").default("free"),
-    phone: varchar("phone", { length: 11 }),
+    phone: varchar("phone", { length: 20 }),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true })
       .notNull()

@@ -16,16 +16,6 @@ export const imagesRoutes = new Elysia({ prefix: "/image" })
 export const imageRoutes = new Elysia({ prefix: "/images" })
   .use(clerkPlugin())
 
-  // .get(
-  //   "/:userId",
-  //   async ({ params: { userId } }) => {
-  //     return await imageService.getUserImages(userId);
-  //   },
-  //   {
-  //     params: t.Object({ userId: t.String() }),
-  //     detail: { tags: ["Images"], summary: "Get User Images" },
-  //   },
-  // )
   .post(
     "",
     async ({ body, set }) => {
@@ -49,3 +39,14 @@ export const imageRoutes = new Elysia({ prefix: "/images" })
       detail: { tags: ["Images"], summary: "Sync User Images (Create/Update)" },
     },
   );
+
+// .get(
+//   "/:userId",
+//   async ({ params: { userId } }) => {
+//     return await imageService.getUserImages(userId);
+//   },
+//   {
+//     params: t.Object({ userId: t.String() }),
+//     detail: { tags: ["Images"], summary: "Get User Images" },
+//   },
+// )

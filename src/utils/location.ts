@@ -88,7 +88,6 @@ export async function getCountryFromCoordinates(
     const countryData = Object.values(countryIndex.countryFlagEmoji).find(
       (country) => country.code === countryCode,
     );
-    console.log({countryComponent})
     return {
       name: countryComponent.long_name,
       abrv: countryCode,

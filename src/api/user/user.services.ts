@@ -1,4 +1,5 @@
 import { InsertUser } from "../../db/schema";
+import { locationRepo } from "../../repo/location.repo";
 import { GetUsersFilters, userRepo } from "../../repo/user.repo";
 import {
   cacheResults,
@@ -13,6 +14,70 @@ import {
 } from "../../utils/location";
 import { blockService } from "../block/block.services";
 import { premiumService } from "../premium/premium.services";
+
+const calculateAdvancedFilterScore = (
+  user: any,
+  filters: GetUsersFilters,
+): number => {
+  let score = 0;
+  const p = user.preferences;
+
+  if (!p) return score;
+
+  if (filters.ethnicity?.length && p.ethnicity)
+    if (filters.ethnicity.includes(p.ethnicity)) score += 1;
+
+  if (filters.zodiac?.length && p.zodiac)
+    if (filters.zodiac.includes(p.zodiac)) score += 1;
+
+  if (filters.familyPlans?.length && p.familyPlans)
+    if (filters.familyPlans.includes(p.familyPlans)) score += 1;
+
+  if (filters.educationLevel?.length && p.education)
+    if (
+      filters.educationLevel.some((e) =>
+        p.education?.toLowerCase().includes(e.toLowerCase()),
+      )
+    )
+      score += 1;
+
+  if (filters.height?.length && p.height)
+    if (
+      filters.height.some((h) =>
+        p.height?.toLowerCase().includes(h.toLowerCase()),
+      )
+    )
+      score += 1;
+
+  if (filters.lookingFor?.length && p.lookingToDate?.length)
+    if (filters.lookingFor.some((l) => p.lookingToDate.includes(l))) score += 1;
+
+  if (filters.workoutFrequency?.length && p.workoutFrequency)
+    if (filters.workoutFrequency.includes(p.workoutFrequency)) score += 1;
+
+  if (filters.personality?.length && p.personality)
+    if (filters.personality.includes(p.personality)) score += 1;
+
+  if (filters.language?.length && p.language)
+    if (filters.language.includes(p.language)) score += 1;
+
+  if (filters.bodyType?.length && p.bodyType)
+    if (filters.bodyType.includes(p.bodyType)) score += 1;
+
+  if (filters.loveLanguage?.length && p.loveLanguage)
+    if (filters.loveLanguage.includes(p.loveLanguage)) score += 1;
+
+  if (filters.hasBio && (p.hasBio || user.profile?.bio?.length > 20))
+    score += 1;
+
+  if (filters.smoking && p.smoking) score += 1;
+  if (filters.drinking && p.drinking) score += 1;
+
+  if (filters.opennessToLongDistance && p.opennessToLongDistance) score += 1;
+  if (filters.willingToRelocate && p.willingToRelocate) score += 1;
+
+  return score;
+};
 
 const calculateVisibilityScore = (user: any): number => {
   let score = 1;
@@ -42,7 +107,18 @@ export const userService = {
   },
 
   getUser: async (id: string) => {
-    return await userRepo.getUserById(id);
+    const user = await userRepo.getUserById(id);
+    if (!user) throw new Error("User not found.");
+    const l = await locationRepo.getLocationByUserId(id);
+    let location: { name: string; abrv: string; flag: string } | null;
+    if (l) {
+      location = await getCountryFromCoordinates(
+        parseFloat(l.latitude),
+        parseFloat(l.longitude),
+      );
+      return { ...user, location: location ? location : null };
+    }
+    return user
   },
 
   getFilteredUsersList: async (
@@ -82,13 +158,10 @@ export const userService = {
       currentUserId,
       blockedUserIds,
     });
-    // 5. Process distances, formatting, and premium visibility
     const usersWithDistances = await Promise.all(
       users.map(async (user: any) => {
-        // Skip users missing critical location or age data
         if (!user.latitude || !user.longitude || !user.birthday) return null;
 
-        // Apply programmatic filters (age + photos)
         const age =
           new Date().getFullYear() - new Date(user.birthday).getFullYear();
         if (age < ageRange[0] || age > ageRange[1]) return null;
@@ -100,7 +173,6 @@ export const userService = {
           lng: parseFloat(user.longitude),
         };
 
-        // Get destination country (cached)
         let country = await getCachedCountry(destination.lat, destination.lng);
         if (!country) {
           country = await getCountryFromCoordinates(
@@ -115,7 +187,6 @@ export const userService = {
         let distanceKm: number | string = radius[1];
         let travelTimeMinutes = 0;
 
-        // For same country: calculate actual travel distance
         if (sameCountry) {
           const cachedDistance = await getCachedDistance(origin, destination);
           if (cachedDistance) {
@@ -137,14 +208,18 @@ export const userService = {
         }
 
         const premiumBoost = await premiumService.getBoostMultiplier(user.id);
-        const boostedVisibilityScore =
+        const baseVisibilityScore =
           calculateVisibilityScore(user) * premiumBoost;
+        const advancedScore = calculateAdvancedFilterScore(user, filters);
+
         return {
           ...user,
           distanceKm,
           travelTimeMinutes,
           country,
-          boostedVisibilityScore,
+          baseVisibilityScore,
+          advancedScore,
+          totalScore: baseVisibilityScore + advancedScore,
         };
       }),
     );
