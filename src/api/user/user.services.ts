@@ -120,7 +120,7 @@ export const userService = {
       );
       return { ...user, location: location ? location : null };
     }
-    return user
+    return user;
   },
 
   getFilteredUsersList: async (

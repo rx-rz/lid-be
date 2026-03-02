@@ -67,7 +67,6 @@ export const userRoutes = new Elysia({ name: "routes.user" })
     "/user/:id",
     async ({ params: { id }, body, set }) => {
       try {
-        console.log({ id });
         const data = await userService.updateUser(id, {
           ...body,
           lastLogin: body.lastLogin ? new Date(body.lastLogin) : undefined,
