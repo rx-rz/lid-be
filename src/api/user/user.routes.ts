@@ -194,6 +194,15 @@ export const userRoutes = new Elysia({ name: "routes.user" })
           email: t.Union([t.String(), t.Null()]),
           subscription: t.Union([t.String(), t.Null()]),
           image: t.Union([t.String(), t.Null()]),
+          whyHere: t.Optional(
+            t.Nullable(
+              t.Union([
+                t.Literal("man"),
+                t.Literal("woman"),
+                t.Literal("nonbinary"),
+              ]),
+            ),
+          ),
           location: t.Optional(
             t.Nullable(
               t.Object({

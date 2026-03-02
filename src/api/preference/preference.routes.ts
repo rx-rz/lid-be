@@ -20,6 +20,7 @@ const PreferenceSchema = t.Object({
   familyPlans: t.Optional(t.String()),
   gender: t.Optional(t.String()),
   height: t.Optional(t.String()),
+  whyHere: t.Optional(t.Union([t.Literal("man"), t.Literal("woman"), t.Literal("nonbinary")])),
   hasBio: t.Optional(t.Boolean()),
   minNumberOfPhotos: t.Optional(t.String()),
 });

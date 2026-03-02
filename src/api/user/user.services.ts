@@ -15,6 +15,7 @@ import {
 } from "../../utils/location";
 import { blockService } from "../block/block.services";
 import { premiumService } from "../premium/premium.services";
+import { preferenceRepo } from "../../repo/preference.repo";
 
 const calculateAdvancedFilterScore = (
   user: any,
@@ -111,18 +112,22 @@ export const userService = {
   getUser: async (id: string) => {
     const user = await userRepo.getUserById(id);
     if (!user) throw new Error("User not found.");
-    const l = await locationRepo.getLocationByUserId(id);
-    let location: { name: string; abrv: string; flag: string } | null;
-    if (l) {
-      location = await getCountryFromCoordinates(
-        parseFloat(l.latitude),
-        parseFloat(l.longitude),
-      );
-      return { ...user, location: location ? location : null };
-    }
-    return user;
-  },
 
+    const [l, p] = await Promise.all([
+      locationRepo.getLocationByUserId(id),
+      preferenceRepo.getPreferenceByUserId(id),
+    ]);
+
+    const location = l
+      ? await getCountryFromCoordinates(
+          parseFloat(l.latitude),
+          parseFloat(l.longitude),
+        )
+      : null;
+
+    return { ...user, location: location ?? null, whyHere: p.whyHere };
+  },
+  
   getFilteredUsersList: async (
     currentUserId: string,
     filters: GetUsersFilters,

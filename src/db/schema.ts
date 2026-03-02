@@ -19,10 +19,17 @@ import { relations } from "drizzle-orm/relations";
 import { InferEnum } from "drizzle-orm";
 
 export const genderEnum = pgEnum("gender", ["MAN", "WOMAN", "NONBINARY"]);
+
 export const subscriptionEnum = pgEnum("subscription_type", [
   "free",
   "premium",
   "gold",
+]);
+
+export const whyHereEnum = pgEnum("whyhere_enum", [
+  "man",
+  "woman",
+  "nonbinary",
 ]);
 
 export type Gender = InferEnum<typeof genderEnum>;
@@ -115,7 +122,7 @@ export const preferencesTable = pgTable(
     pronouns: varchar("pronouns", { length: 50 }).default(""),
     zodiac: varchar("zodiac", { length: 50 }).default(""),
     bio: varchar("bio", { length: 50 }).default(""),
-
+    whyHere: whyHereEnum("why_here"),
     smoking: boolean("smoking").default(false),
     drinking: boolean("drinking").default(false),
     religion: varchar("religion", { length: 50 }).default(""),
@@ -130,7 +137,6 @@ export const preferencesTable = pgTable(
     hasBio: boolean("has_bio").default(false),
     minNumberOfPhotos: varchar("min_photos").default(""),
     connections: varchar("connections").default(""),
-
     jobTitle: varchar("job_title", { length: 100 }).default(""),
     company: varchar("company", { length: 100 }).default(""),
     school: varchar("school", { length: 100 }).default(""),
