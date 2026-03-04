@@ -6,7 +6,7 @@ const PreferenceSchema = t.Object({
   lookingToDate: t.Optional(t.Array(t.String())),
   interests: t.Optional(t.Array(t.String())),
   bio: t.Optional(t.String()),
-  drinking: t.Optional(t.Boolean()),
+  drinking: t.Optional(t.String()),
   education: t.Optional(t.String()),
   pronouns: t.Optional(t.String()),
   religion: t.Optional(t.String()),

@@ -51,9 +51,6 @@ const calculateAdvancedFilterScore = (
     )
       score += 1;
 
-  if (filters.lookingFor?.length && p.lookingToDate?.length)
-    if (filters.lookingFor.some((l) => p.lookingToDate.includes(l))) score += 1;
-
   if (filters.workoutFrequency?.length && p.workoutFrequency)
     if (filters.workoutFrequency.includes(p.workoutFrequency)) score += 1;
 
@@ -69,14 +66,21 @@ const calculateAdvancedFilterScore = (
   if (filters.loveLanguage?.length && p.loveLanguage)
     if (filters.loveLanguage.includes(p.loveLanguage)) score += 1;
 
+  if (filters.smoking?.length && p.smoking)
+    if (filters.smoking.includes(p.smoking)) score += 1;
+
+  if (filters.drinking?.length && p.drinking)
+    if (filters.drinking.includes(p.drinking)) score += 1;
+
+  if (filters.opennessToLongDistance?.length && p.opennessToLongDistance)
+    if (filters.opennessToLongDistance.includes(p.opennessToLongDistance))
+      score += 1;
+
+  if (filters.willingToRelocate?.length && p.willingToRelocate)
+    if (filters.willingToRelocate.includes(p.willingToRelocate)) score += 1;
+
   if (filters.hasBio && (p.hasBio || user.profile?.bio?.length > 20))
     score += 1;
-
-  if (filters.smoking && p.smoking) score += 1;
-  if (filters.drinking && p.drinking) score += 1;
-
-  if (filters.opennessToLongDistance && p.opennessToLongDistance) score += 1;
-  if (filters.willingToRelocate && p.willingToRelocate) score += 1;
 
   return score;
 };
@@ -127,7 +131,7 @@ export const userService = {
 
     return { ...user, location: location ?? null, whyHere: p.whyHere };
   },
-  
+
   getFilteredUsersList: async (
     currentUserId: string,
     filters: GetUsersFilters,
@@ -141,8 +145,8 @@ export const userService = {
       ageRange,
       minPhotos,
     });
-    const cachedResults = await getCachedResults(currentUserId, queryHash);
-    if (cachedResults) return cachedResults;
+    // const cachedResults = await getCachedResults(currentUserId, queryHash);
+    // if (cachedResults) return cachedResults;
 
     const currentLocation = await userRepo.getUserLocation(currentUserId);
     if (!currentLocation) throw new Error("Current user location not found");
@@ -165,16 +169,23 @@ export const userService = {
       currentUserId,
       blockedUserIds,
     });
+
     const usersWithDistances = await Promise.all(
       users.map(async (user: any) => {
         if (!user.latitude || !user.longitude || !user.birthday) return null;
 
-        const age =
-          new Date().getFullYear() - new Date(user.birthday).getFullYear();
+        const dob = new Date(user.birthday);
+        const today = new Date();
+        let age = today.getFullYear() - dob.getFullYear();
+        const hasBirthdayPassed =
+          today.getMonth() > dob.getMonth() ||
+          (today.getMonth() === dob.getMonth() &&
+            today.getDate() >= dob.getDate());
+        if (!hasBirthdayPassed) age--;
+
         if (age < ageRange[0] || age > ageRange[1]) return null;
         if (minPhotos && (!user.images || user.images.length < minPhotos))
           return null;
-
         const destination = {
           lat: parseFloat(user.latitude),
           lng: parseFloat(user.longitude),
@@ -238,10 +249,7 @@ export const userService = {
           typeof user.distanceKm === "number" ? user.distanceKm : radius[1];
         return distance >= radius[0] && distance <= radius[1];
       })
-      .sort(
-        (a: any, b: any) =>
-          (b.boostedVisibilityScore || 0) - (a.boostedVisibilityScore || 0),
-      );
+      .sort((a: any, b: any) => (b.totalScore || 0) - (a.totalScore || 0));
 
     await cacheResults(currentUserId, queryHash, filteredResults);
 

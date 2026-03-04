@@ -32,6 +32,8 @@ export const whyHereEnum = pgEnum("whyhere_enum", [
   "nonbinary",
 ]);
 
+// export const likertEnum = pgEnum("")
+
 export type Gender = InferEnum<typeof genderEnum>;
 export type SubscriptionType = InferEnum<typeof subscriptionEnum>;
 
@@ -123,8 +125,8 @@ export const preferencesTable = pgTable(
     zodiac: varchar("zodiac", { length: 50 }).default(""),
     bio: varchar("bio", { length: 50 }).default(""),
     whyHere: whyHereEnum("why_here"),
-    smoking: boolean("smoking").default(false),
-    drinking: boolean("drinking").default(false),
+    smoking: varchar("smoking", {length: 50}),
+    drinking: varchar("drinking", {length: 50}),
     religion: varchar("religion", { length: 50 }).default(""),
     education: varchar("education", { length: 50 }).default(""),
     pets: varchar("pets", { length: 50 }).default(""),
@@ -153,8 +155,8 @@ export const preferencesTable = pgTable(
     relationshipStatus: varchar("relationship_status", { length: 50 }).default(
       "",
     ),
-    willingToRelocate: boolean("willing_to_relocate").default(false),
-    opennessToLongDistance: boolean("openness_to_long_distance").default(false),
+    willingToRelocate: varchar("willing_to_relocate", {length: 50}),
+    opennessToLongDistance: varchar("openness_to_long_distance", {length: 50}),
   },
   (table) => [uniqueIndex("unique_preferences_idx").on(table.userId)],
 );

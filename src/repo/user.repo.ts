@@ -33,8 +33,8 @@ export type GetUsersFilters = {
   gender?: string[];
   activity?: "justJoined";
   country?: string;
-  smoking?: boolean;
-  drinking?: boolean;
+  smoking?: string[];
+  drinking?: string[];
   ethnicity?: string[];
   educationLevel?: string[];
   lookingFor?: string[];
@@ -47,8 +47,8 @@ export type GetUsersFilters = {
   language?: string[];
   bodyType?: string[];
   loveLanguage?: string[];
-  opennessToLongDistance?: boolean;
-  willingToRelocate?: boolean;
+  opennessToLongDistance?: string[];
+  willingToRelocate?: string[];
 };
 
 export const userRepo = {
@@ -125,6 +125,16 @@ export const userRepo = {
       .limit(1);
     return !!user;
   },
+
+  getUserByClerkId: async (clerkId: string): Promise<boolean> => {
+    const [user] = await db
+      .select({ id: usersTable.id })
+      .from(usersTable)
+      .where(eq(usersTable.id, clerkId))
+      .limit(1);
+    return !!user;
+  },
+
   getUserLocation: async (userId: string) => {
     const [location] = await db
       .select({
@@ -138,8 +148,8 @@ export const userRepo = {
 
     return location;
   },
+
   deleteUser: async (id: string) => {
-    // Relying on Drizzle's onDelete: 'cascade' set in the schema
     const [deleted] = await db
       .delete(usersTable)
       .where(eq(usersTable.id, id))
@@ -173,6 +183,10 @@ export const userRepo = {
 
       filters.blockedUserIds?.length
         ? not(inArray(usersTable.id, filters.blockedUserIds))
+        : undefined,
+
+      filters.lookingFor?.length
+        ? inArray(usersTable.gender, filters.lookingFor as any[])
         : undefined,
 
       filters.gender?.length

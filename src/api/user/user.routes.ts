@@ -272,20 +272,26 @@ export const userRoutes = new Elysia({ name: "routes.user" })
         };
       }
 
-      if (parsedRadius[0] < 0 || parsedRadius[1] > MAX_DISTANCE) {
-        set.status = 422;
-        return {
-          status: "unprocessable entity",
-          message: "Invalid distance range",
-        };
-      }
-      if (parsedAge[0] < 18 || parsedAge[1] > 199) {
-        set.status = 422;
-        return { status: "Invalid", message: "Invalid age range" };
-      }
+      // if (
+      //   parsedRadius[0] < -90 ||
+      //   parsedRadius[0] > 90 ||
+      //   parsedRadius[1] < -180 ||
+      //   parsedRadius[1] > 180
+      // ) {
+      //   set.status = 422;
+      //   return {
+      //     status: "unprocessable entity",
+      //     message: "Invalid coordinate range",
+      //   };
+      // }
       if (parsedRadius.some(isNaN) || parsedAge.some(isNaN)) {
         set.status = 400;
         return { status: "fail", message: "Invalid number format" };
+      }
+
+      if (parsedAge[0] < 1 || parsedAge[1] > 199) {
+        set.status = 422;
+        return { status: "Invalid", message: "Invalid age range" };
       }
 
       let parsedGender: string[] | undefined;
@@ -303,14 +309,17 @@ export const userRoutes = new Elysia({ name: "routes.user" })
         {
           currentUserId: query.userId,
           blockedUserIds: [],
-          gender: parseMultiSelect(query.gender),
+
           activity: query.activity as "justJoined" | undefined,
           country: query.country?.toUpperCase(),
-          smoking: query.smoking === "true",
-          drinking: query.drinking === "true",
+          smoking: parseMultiSelect(query.smoking),
+          drinking: parseMultiSelect(query.drinking),
           hasBio: query.hasBio === "true",
-          opennessToLongDistance: query.opennessToLongDistance === "true",
-          willingToRelocate: query.willingToRelocate === "true",
+          opennessToLongDistance: parseMultiSelect(
+            query.opennessToLongDistance,
+          ),
+          willingToRelocate: parseMultiSelect(query.willingToRelocate),
+          gender: parseMultiSelect(query.gender),
           ethnicity: parseMultiSelect(query.ethnicity),
           zodiac: parseMultiSelect(query.zodiac),
           familyPlans: parseMultiSelect(query.familyPlans),
@@ -338,7 +347,7 @@ export const userRoutes = new Elysia({ name: "routes.user" })
         gender: t.Optional(t.String()),
         activity: t.Optional(t.Literal("justJoined")),
         country: t.Optional(t.String()),
-        // Advanced — now arrays as JSON strings e.g. '["Leo","Aries"]'
+        // Advanced — now arrays as JSON strings e.g. '["Leo","Aries"]'b
         smoking: t.Optional(t.String()),
         hasBio: t.Optional(t.String()),
         drinking: t.Optional(t.String()),
