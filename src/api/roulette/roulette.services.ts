@@ -1,3 +1,6 @@
+import { eq } from "drizzle-orm";
+import { db } from "../../db/db";
+import { preferencesTable } from "../../db/schema";
 import { rouletteRepo } from "../../repo/roulette.repo";
 
 const MATCH_DURATION_MS = 2 * 60 * 1000;
@@ -60,7 +63,7 @@ const scheduleMatchEnd = (matchId: string, endTime: Date) => {
 };
 
 export const rouletteService = {
-  findMatch: async (userId: string) => {
+  findMatch: async (userId: string, genderPreference?: string) => {
     const existing = await rouletteRepo.findSessionByUserId(userId);
 
     if (existing) {
@@ -105,6 +108,12 @@ export const rouletteService = {
     }
 
     const previousPartners = existing?.previousPartners || [];
+    const userPreferences = await db
+      .select({ lookingToDate: preferencesTable.lookingToDate })
+      .from(preferencesTable)
+      .where(eq(preferencesTable.userId, userId))
+      .limit(1);
+
     const session = await rouletteRepo.upsertWaitingSession(
       userId,
       previousPartners,
@@ -113,7 +122,9 @@ export const rouletteService = {
     const partner = await rouletteRepo.findCompatiblePartner(
       userId,
       session.previousPartners || [],
+      genderPreference,
     );
+
     if (!partner) {
       return {
         matched: false,

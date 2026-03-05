@@ -4,6 +4,14 @@ import { userRepo } from "../../repo/user.repo";
 import { fcmAdmin } from "../../services/fcm";
 import { logger } from "../../utils/logger";
 
+const enforceSwipeLimit = async (
+  userId: string,
+  subscriptionType: string | null,
+) => {
+  if (subscriptionType === "free" || subscriptionType === null) {
+    await interactionRepo.checkAndIncrementSwipeLimit(userId);
+  }
+};
 export const interactionService = {
   likeUser: async (
     likerId: string,
@@ -28,6 +36,8 @@ export const interactionService = {
     }
 
     const like = await interactionRepo.createLike(likerId, likedId, superLike);
+    await enforceSwipeLimit(likerId, likerExists.subscription);
+
     if (!like) throw new Error("Failed to create like");
 
     const targetFcmToken = likedExists.fcmToken;
@@ -62,7 +72,7 @@ export const interactionService = {
     if (dislikerId === dislikedId)
       throw new Error("You cannot dislike yourself");
 
-    const dislikerExists = await userRepo.checkUserExists(dislikerId);
+    const dislikerExists = await userRepo.getUserWithFcmToken(dislikerId);
     const dislikedExists = await userRepo.checkUserExists(dislikedId);
 
     if (!dislikerExists || !dislikedExists) {
@@ -85,12 +95,13 @@ export const interactionService = {
       throw new Error("Dislike already exists");
     }
 
+    await enforceSwipeLimit(dislikerId, dislikerExists.subscription);
+
     const dislike = await interactionRepo.createDislike(dislikerId, dislikedId);
     if (!dislike) throw new Error("Failed to create dislike");
 
     return dislike;
   },
-
   getLikedUsers: async (userId: string) => {
     return await interactionRepo.getLikedUsers(userId);
   },

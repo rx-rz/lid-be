@@ -14,6 +14,7 @@ import {
   matchesTable,
   rouletteMatchesTable,
   rouletteSessionsTable,
+  usersTable,
 } from "../db/schema";
 
 export const rouletteRepo = {
@@ -72,16 +73,27 @@ export const rouletteRepo = {
     return updated;
   },
 
-  findCompatiblePartner: async (userId: string, previousPartners: string[]) => {
+  findCompatiblePartner: async (
+    userId: string,
+    previousPartners: string[],
+    genderPreference?: string,
+  ) => {
     const partners = await db
-      .select()
+      .select({
+        session: rouletteSessionsTable,
+        gender: usersTable.gender,
+      })
       .from(rouletteSessionsTable)
+      .innerJoin(usersTable, eq(rouletteSessionsTable.userId, usersTable.id))
       .where(
         and(
           eq(rouletteSessionsTable.status, "waiting"),
           ne(rouletteSessionsTable.userId, userId),
           previousPartners.length > 0
             ? not(inArray(rouletteSessionsTable.userId, previousPartners))
+            : sql`1=1`,
+          genderPreference
+            ? eq(usersTable.gender, genderPreference as any)
             : sql`1=1`,
           notExists(
             db
@@ -105,7 +117,7 @@ export const rouletteRepo = {
       .orderBy(rouletteSessionsTable.createdAt)
       .limit(1);
 
-    return partners[0];
+    return partners[0]?.session;
   },
 
   claimPartner: async (partnerId: string) => {

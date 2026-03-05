@@ -1,4 +1,6 @@
+import { locationRepo } from "../../repo/location.repo";
 import { profileRepo } from "../../repo/profile.repo";
+import { getCountryFromCoordinates } from "../../utils/location";
 
 export const profileService = {
   createProfile: async (userId: string, bio: string, interests: string[]) => {
@@ -6,7 +8,15 @@ export const profileService = {
   },
 
   getProfile: async (userId: string) => {
-    return await profileRepo.getProfileWithDetails(userId);
+    const profile = await profileRepo.getProfileWithDetails(userId);
+    const l = await locationRepo.getLocationByUserId(userId);
+    const location = l
+      ? await getCountryFromCoordinates(
+          parseFloat(l.latitude),
+          parseFloat(l.longitude),
+        )
+      : null;
+    return { ...profile, location: location ?? null };
   },
 
   updateProfile: async (userId: string, bio?: string, interests?: string[]) => {

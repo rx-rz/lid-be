@@ -28,6 +28,7 @@ export const rouletteRoutes = new Elysia({ prefix: "/roulette" })
     {
       body: t.Object({
         userId: t.String(),
+        genderPreference: t.Optional(t.String()),
       }),
       detail: {
         tags: ["Roulette"],

@@ -125,8 +125,8 @@ export const preferencesTable = pgTable(
     zodiac: varchar("zodiac", { length: 50 }).default(""),
     bio: varchar("bio", { length: 50 }).default(""),
     whyHere: whyHereEnum("why_here"),
-    smoking: varchar("smoking", {length: 50}),
-    drinking: varchar("drinking", {length: 50}),
+    smoking: varchar("smoking", { length: 50 }),
+    drinking: varchar("drinking", { length: 50 }),
     religion: varchar("religion", { length: 50 }).default(""),
     education: varchar("education", { length: 50 }).default(""),
     pets: varchar("pets", { length: 50 }).default(""),
@@ -155,8 +155,10 @@ export const preferencesTable = pgTable(
     relationshipStatus: varchar("relationship_status", { length: 50 }).default(
       "",
     ),
-    willingToRelocate: varchar("willing_to_relocate", {length: 50}),
-    opennessToLongDistance: varchar("openness_to_long_distance", {length: 50}),
+    willingToRelocate: varchar("willing_to_relocate", { length: 50 }),
+    opennessToLongDistance: varchar("openness_to_long_distance", {
+      length: 50,
+    }),
   },
   (table) => [uniqueIndex("unique_preferences_idx").on(table.userId)],
 );
@@ -363,6 +365,20 @@ export const profileViewsRelations = relations(
 
 export type InsertProfileView = typeof profileViewsTable.$inferInsert;
 export type SelectProfileView = typeof profileViewsTable.$inferSelect;
+
+export const swipeLimitsTable = pgTable(
+  "swipe_limits",
+  {
+    userId: text("user_id")
+      .notNull()
+      .references(() => usersTable.id, { onDelete: "cascade" }),
+    swipeCount: integer("swipe_count").default(0).notNull(),
+    windowStart: timestamp("window_start", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [uniqueIndex("unique_swipe_limit_idx").on(table.userId)],
+);
 
 export const favoritesTable = pgTable("favorites", {
   id: uuid("id").defaultRandom().primaryKey(),

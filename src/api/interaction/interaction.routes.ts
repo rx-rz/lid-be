@@ -14,6 +14,11 @@ export const interactionRoutes = new Elysia()
         set.status = 201;
         return result;
       } catch (error: any) {
+        if (error.message?.startsWith("SWIPE_LIMIT_REACHED:")) {
+          const resetTime = error.message.split(":").slice(1).join(":");
+          set.status = 429;
+          return { error: "Swipe limit reached", resetTime };
+        }
         set.status = error.message.includes("exist") ? 404 : 400;
         return { error: error.message || "Failed to process like" };
       }
@@ -76,6 +81,11 @@ export const interactionRoutes = new Elysia()
         set.status = 201;
         return dislike;
       } catch (error: any) {
+        if (error.message?.startsWith("SWIPE_LIMIT_REACHED:")) {
+          const resetTime = error.message.split(":").slice(1).join(":");
+          set.status = 429;
+          return { error: "Swipe limit reached", resetTime };
+        }
         set.status = error.message.includes("exist") ? 404 : 400;
         return { error: error.message || "Failed to process dislike" };
       }

@@ -6,6 +6,7 @@ import {
   matchesTable,
   usersTable,
   imagesTable,
+  swipeLimitsTable,
 } from "../db/schema";
 
 export const interactionRepo = {
@@ -84,7 +85,7 @@ export const interactionRepo = {
   getReceivedLikes: async (userId: string) => {
     return await db
       .select({
-        likedId: likesTable.likerId, 
+        likedId: likesTable.likerId,
         likedAt: likesTable.likedAt,
         superLike: likesTable.superLike,
         user: sql`json_build_object('id', ${usersTable.id}, 'name', ${usersTable.displayName}, 'email', ${usersTable.email})`,
@@ -135,5 +136,39 @@ export const interactionRepo = {
       ...dislikedUserIds.map((u) => u.userId),
       ...matchedUserIds.map((u) => u.userId),
     ]);
+  },
+  
+  checkAndIncrementSwipeLimit: async (userId: string): Promise<void> => {
+    const now = new Date();
+    const windowCutoff = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+
+    const [record] = await db
+      .select()
+      .from(swipeLimitsTable)
+      .where(eq(swipeLimitsTable.userId, userId))
+      .limit(1);
+
+    if (!record || record.windowStart < windowCutoff) {
+      await db
+        .insert(swipeLimitsTable)
+        .values({ userId, swipeCount: 1, windowStart: now })
+        .onConflictDoUpdate({
+          target: swipeLimitsTable.userId,
+          set: { swipeCount: 1, windowStart: now },
+        });
+      return;
+    }
+
+    if (record.swipeCount >= 25) {
+      const resetTime = new Date(
+        record.windowStart.getTime() + 24 * 60 * 60 * 1000,
+      );
+      throw new Error(`SWIPE_LIMIT_REACHED:${resetTime.toISOString()}`);
+    }
+
+    await db
+      .update(swipeLimitsTable)
+      .set({ swipeCount: sql`${swipeLimitsTable.swipeCount} + 1` })
+      .where(eq(swipeLimitsTable.userId, userId));
   },
 };
