@@ -1,4 +1,4 @@
-import { and, eq, not, or, sql } from "drizzle-orm";
+import { and, desc, eq, exists, isNotNull, not, or, sql } from "drizzle-orm";
 import { db } from "../db/db";
 import {
   matchesTable,
@@ -6,6 +6,8 @@ import {
   locationsTable,
   imagesTable,
   userActivityTable,
+  rouletteSessionsTable,
+  rouletteMatchesTable,
 } from "../db/schema";
 
 export const matchRepo = {
@@ -55,5 +57,51 @@ export const matchRepo = {
         locationsTable.id,
         userActivityTable.userId,
       );
+  },
+  getRouletteEncounter: async (user1Id: string, user2Id: string) => {
+    const [encounter] = await db
+      .select({ endedAt: rouletteMatchesTable.endedAt })
+      .from(rouletteMatchesTable)
+      .innerJoin(
+        rouletteSessionsTable,
+        or(
+          eq(rouletteMatchesTable.session1Id, rouletteSessionsTable.id),
+          eq(rouletteMatchesTable.session2Id, rouletteSessionsTable.id),
+        ),
+      )
+      .where(
+        and(
+          isNotNull(rouletteMatchesTable.endedAt),
+          or(
+            and(
+              eq(rouletteSessionsTable.userId, user1Id),
+              exists(
+                db
+                  .select()
+                  .from(rouletteSessionsTable)
+                  .where(
+                    and(
+                      eq(rouletteSessionsTable.userId, user2Id),
+                      or(
+                        eq(
+                          rouletteMatchesTable.session1Id,
+                          rouletteSessionsTable.id,
+                        ),
+                        eq(
+                          rouletteMatchesTable.session2Id,
+                          rouletteSessionsTable.id,
+                        ),
+                      ),
+                    ),
+                  ),
+              ),
+            ),
+          ),
+        ),
+      )
+      .orderBy(desc(rouletteMatchesTable.endedAt))
+      .limit(1);
+
+    return encounter ?? null;
   },
 };

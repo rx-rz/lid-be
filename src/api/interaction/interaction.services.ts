@@ -35,9 +35,9 @@ export const interactionService = {
       throw new Error("Like already exists");
     }
 
-    const like = await interactionRepo.createLike(likerId, likedId, superLike);
     await enforceSwipeLimit(likerId, likerExists.subscription);
 
+    const like = await interactionRepo.createLike(likerId, likedId, superLike);
     if (!like) throw new Error("Failed to create like");
 
     const targetFcmToken = likedExists.fcmToken;
@@ -58,6 +58,18 @@ export const interactionService = {
 
     const mutualLike = await interactionRepo.getExistingLike(likedId, likerId);
     if (mutualLike) {
+      const encounter = await matchRepo.getRouletteEncounter(likerId, likedId);
+
+      if (encounter?.endedAt) {
+        const encounterEnd = encounter.endedAt;
+        const currentLikeIsAfter = like.likedAt! >= encounterEnd;
+        const mutualLikeIsAfter = mutualLike.likedAt! >= encounterEnd;
+
+        if (!currentLikeIsAfter || !mutualLikeIsAfter) {
+          return { like };
+        }
+      }
+
       const newMatch = await matchRepo.createMatch(likerId, likedId);
       if (!newMatch) throw new Error("Failed to create match");
 
