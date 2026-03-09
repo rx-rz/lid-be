@@ -1,6 +1,24 @@
 import { Elysia, t } from "elysia";
 import { interactionService } from "./interaction.services";
 
+const LikesListSchema = t.Array(
+  t.Object({
+    likedId: t.String(),
+    likedAt: t.Union([t.Date(), t.String()]), // Drizzle returns Date, JSON serializes to String
+    superLike: t.Boolean(),
+    images: t.Array(t.String()),
+    user: t.Nullable(
+      t.Object({
+        id: t.String(),
+        name: t.Nullable(t.String()), // Explicitly nullable per your screenshot
+        email: t.Nullable(t.String()), // Explicitly nullable per your screenshot
+        age: t.Nullable(t.Number()),
+      }),
+    ),
+  }),
+);
+const ErrorSchema = t.Object({ error: t.String() });
+
 export const interactionRoutes = new Elysia()
   .post(
     "/likes",
@@ -45,6 +63,10 @@ export const interactionRoutes = new Elysia()
     },
     {
       params: t.Object({ userId: t.String() }),
+      response: {
+        200: LikesListSchema,
+        500: ErrorSchema,
+      },
       detail: {
         tags: ["Interactions"],
         summary: "Get Users the Current User Liked",
@@ -64,6 +86,10 @@ export const interactionRoutes = new Elysia()
     },
     {
       params: t.Object({ userId: t.String() }),
+      response: {
+        200: LikesListSchema,
+        500: ErrorSchema,
+      },
       detail: {
         tags: ["Interactions"],
         summary: "Get Users Who Liked the Current User",
@@ -95,6 +121,7 @@ export const interactionRoutes = new Elysia()
         dislikerId: t.String(),
         dislikedId: t.String(),
       }),
+
       detail: { tags: ["Interactions"], summary: "Dislike a User" },
     },
   );

@@ -2,9 +2,9 @@ import { preferenceRepo } from "../../repo/preference.repo";
 
 export const preferenceService = {
   create: async (userId: string, lookingToDate: string[]) => {
-    return await preferenceRepo.createPreference(userId, lookingToDate);
+    return await preferenceRepo.upsertPreference(userId, lookingToDate);
   },
-
+  
   update: async (id: number, userId: string, data: any) => {
     const existingPreference = await preferenceRepo.getPreferenceByIdOrUserId(
       id,

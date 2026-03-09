@@ -23,7 +23,7 @@ export const profileViewsService = {
         viewedId,
         viewedAt: view.viewedAt,
         viewerName: viewerExists.displayName,
-        viewerImage: viewerExists.image, 
+        viewerImage: viewerExists.image,
       });
     } catch (ablyError) {
       logger.error({ err: ablyError }, "Ably notification failed");
@@ -43,7 +43,6 @@ export const profileViewsService = {
 
     const allViews = await profileViewsRepo.getProfileViewsByUserId(userId);
 
-    // Process in JavaScript to get unique viewers with their most recent view
     const viewerMap = new Map();
     for (const view of allViews) {
       if (!viewerMap.has(view.viewerId)) {
@@ -51,14 +50,40 @@ export const profileViewsService = {
       }
     }
 
-    // Convert map values to array, sort, paginate, and strip viewerId
+    const calculateAge = (birthdayString: string | null): number | null => {
+      if (!birthdayString) return null;
+      const today = new Date();
+      const birthDate = new Date(birthdayString);
+      let age = today.getFullYear() - birthDate.getFullYear();
+      const monthDifference = today.getMonth() - birthDate.getMonth();
+
+      if (
+        monthDifference < 0 ||
+        (monthDifference === 0 && today.getDate() < birthDate.getDate())
+      ) {
+        age--;
+      }
+      return age;
+    };
+
     const uniqueViews = Array.from(viewerMap.values())
       .sort(
         (a, b) =>
-          new Date(b.viewedAt).getTime() - new Date(a.viewedAt).getTime(),
+          new Date(b.viewedAt || 0).getTime() -
+          new Date(a.viewedAt || 0).getTime(),
       )
       .slice(offset, offset + limit)
-      .map(({ viewerId, ...rest }) => rest);
+      .map(({ viewerId, viewer, ...rest }) => {
+        const { birthday, ...viewerRest } = viewer;
+
+        return {
+          ...rest,
+          viewer: {
+            ...viewerRest,
+            age: calculateAge(birthday),
+          },
+        };
+      });
 
     if (markAsSeen) {
       await profileViewsRepo.markViewsAsSeen(userId);
@@ -68,6 +93,6 @@ export const profileViewsService = {
   },
 
   clearOldViews: async () => {
-    return await profileViewsRepo.deleteOldViews(7); // Clear views older than 7 days
+    return await profileViewsRepo.deleteOldViews(7); 
   },
 };

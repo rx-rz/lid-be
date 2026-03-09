@@ -87,6 +87,8 @@ export const userRepo = {
         displayName: usersTable.displayName,
         email: usersTable.email,
         subscription: paymentsTable.subscriptionType,
+        birthday: usersTable.birthday,
+        onboardingPage: usersTable.onboardingPage
       })
       .from(usersTable)
       .leftJoin(paymentsTable, eq(usersTable.id, paymentsTable.userId))
@@ -95,6 +97,7 @@ export const userRepo = {
     if (!user) return undefined;
     return { ...user, image: images[0]?.imageUrl || null };
   },
+  
   getUserWithFcmToken: async (id: string) => {
     const images = await db
       .select()

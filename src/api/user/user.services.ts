@@ -7,7 +7,6 @@ import {
   createQueryHash,
   getCachedCountry,
   getCachedDistance,
-  getCachedResults,
   getCountryFromCoordinates,
   getTravelTimeFromAPI,
   setCachedCountry,

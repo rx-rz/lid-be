@@ -115,10 +115,80 @@ export const interactionService = {
     return dislike;
   },
   getLikedUsers: async (userId: string) => {
-    return await interactionRepo.getLikedUsers(userId);
+    const likedUsers = await interactionRepo.getLikedUsers(userId);
+
+    const calculateAge = (
+      birthdayString: string | null | Date,
+    ): number | null => {
+      if (!birthdayString) return null;
+      const today = new Date();
+      const birthDate = new Date(birthdayString);
+      let age = today.getFullYear() - birthDate.getFullYear();
+      const monthDifference = today.getMonth() - birthDate.getMonth();
+
+      if (
+        monthDifference < 0 ||
+        (monthDifference === 0 && today.getDate() < birthDate.getDate())
+      ) {
+        age--;
+      }
+      return age;
+    };
+
+    return likedUsers.map(({ user, ...rest }) => {
+      if (!user) {
+        return { ...rest, user: null };
+      }
+      const { birthday, ...userRest } = user;
+      return {
+        ...rest,
+        user: {
+          ...userRest,
+          age: calculateAge(birthday),
+        },
+      };
+    });
   },
 
   getReceivedLikes: async (userId: string) => {
-    return await interactionRepo.getReceivedLikes(userId);
+    const receivedLikes = await interactionRepo.getReceivedLikes(userId);
+
+    const calculateAge = (
+      birthdayString: string | null | Date,
+    ): number | null => {
+      if (!birthdayString) return null;
+      const today = new Date();
+      const birthDate = new Date(birthdayString);
+      let age = today.getFullYear() - birthDate.getFullYear();
+      const monthDifference = today.getMonth() - birthDate.getMonth();
+
+      if (
+        monthDifference < 0 ||
+        (monthDifference === 0 && today.getDate() < birthDate.getDate())
+      ) {
+        age--;
+      }
+      return age;
+    };
+
+    return receivedLikes.map(({ user, ...rest }) => {
+
+      if (!user) {
+        return { ...rest, user: null };
+      }
+
+      const { birthday, ...userRest } = user;
+
+      return {
+        ...rest,
+        user: {
+          ...userRest,
+          age: calculateAge(birthday),
+        },
+      };
+    });
+  },
+  getMutualLikes: async (userId: string) => {
+    return await interactionRepo.getMutualLikes(userId);
   },
 };

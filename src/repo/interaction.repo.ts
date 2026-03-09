@@ -1,4 +1,4 @@
-import { eq, and, sql } from "drizzle-orm";
+import { eq, and, sql, exists } from "drizzle-orm";
 import { db } from "../db/db";
 import {
   likesTable,
@@ -8,6 +8,7 @@ import {
   imagesTable,
   swipeLimitsTable,
 } from "../db/schema";
+import { alias } from "drizzle-orm/pg-core";
 
 export const interactionRepo = {
   getExistingLike: async (likerId: string, likedId: string) => {
@@ -54,15 +55,19 @@ export const interactionRepo = {
       .returning();
     return dislike;
   },
-
   getLikedUsers: async (userId: string) => {
     return await db
       .select({
         likedId: likesTable.likedId,
         likedAt: likesTable.likedAt,
         superLike: likesTable.superLike,
-        user: sql`json_build_object('id', ${usersTable.id}, 'name', ${usersTable.displayName}, 'email', ${usersTable.email})`,
-        images: sql`COALESCE(
+        user: {
+          id: usersTable.id,
+          name: usersTable.displayName,
+          email: usersTable.email,
+          birthday: usersTable.birthday,
+        },
+        images: sql<string[]>`COALESCE(
           (SELECT array_agg(${imagesTable.imageUrl})
            FROM ${imagesTable}
            WHERE ${imagesTable.userId} = ${likesTable.likedId}),
@@ -71,25 +76,22 @@ export const interactionRepo = {
       })
       .from(likesTable)
       .where(eq(likesTable.likerId, userId))
-      .leftJoin(usersTable, eq(likesTable.likedId, usersTable.id))
-      .groupBy(
-        likesTable.likedId,
-        likesTable.likedAt,
-        likesTable.superLike,
-        usersTable.id,
-        usersTable.displayName,
-        usersTable.email,
-      );
+      .leftJoin(usersTable, eq(likesTable.likedId, usersTable.id));
   },
 
   getReceivedLikes: async (userId: string) => {
     return await db
       .select({
-        likedId: likesTable.likerId,
+        likedId: likesTable.likerId, 
         likedAt: likesTable.likedAt,
         superLike: likesTable.superLike,
-        user: sql`json_build_object('id', ${usersTable.id}, 'name', ${usersTable.displayName}, 'email', ${usersTable.email})`,
-        images: sql`COALESCE(
+        user: {
+          id: usersTable.id,
+          name: usersTable.displayName,
+          email: usersTable.email,
+          birthday: usersTable.birthday,
+        },
+        images: sql<string[]>`COALESCE(
           (SELECT array_agg(${imagesTable.imageUrl})
            FROM ${imagesTable}
            WHERE ${imagesTable.userId} = ${likesTable.likerId}),
@@ -98,15 +100,7 @@ export const interactionRepo = {
       })
       .from(likesTable)
       .where(eq(likesTable.likedId, userId))
-      .leftJoin(usersTable, eq(likesTable.likerId, usersTable.id))
-      .groupBy(
-        likesTable.likerId,
-        likesTable.likedAt,
-        likesTable.superLike,
-        usersTable.id,
-        usersTable.displayName,
-        usersTable.email,
-      );
+      .leftJoin(usersTable, eq(likesTable.likerId, usersTable.id));
   },
 
   getInteractionHistoryIds: async (userId: string) => {
@@ -137,7 +131,7 @@ export const interactionRepo = {
       ...matchedUserIds.map((u) => u.userId),
     ]);
   },
-  
+
   checkAndIncrementSwipeLimit: async (userId: string): Promise<void> => {
     const now = new Date();
     const windowCutoff = new Date(now.getTime() - 24 * 60 * 60 * 1000);
@@ -170,5 +164,44 @@ export const interactionRepo = {
       .update(swipeLimitsTable)
       .set({ swipeCount: sql`${swipeLimitsTable.swipeCount} + 1` })
       .where(eq(swipeLimitsTable.userId, userId));
+  },
+  getMutualLikes: async (userId: string) => {
+    const reverseLikes = alias(likesTable, "reverseLikes");
+
+    return await db
+      .select({
+        userId: likesTable.likedId,
+        likedAt: likesTable.likedAt,
+        superLike: likesTable.superLike,
+        user: {
+          id: usersTable.id,
+          name: usersTable.displayName,
+          email: usersTable.email,
+        },
+        images: sql<string[]>`COALESCE(
+        (SELECT array_agg(${imagesTable.imageUrl})
+         FROM ${imagesTable}
+         WHERE ${imagesTable.userId} = ${likesTable.likedId}),
+        ARRAY[]::text[]
+      )`,
+      })
+      .from(likesTable)
+      .leftJoin(usersTable, eq(likesTable.likedId, usersTable.id))
+      .where(
+        and(
+          eq(likesTable.likerId, userId),
+          exists(
+            db
+              .select({ 1: sql`1` })
+              .from(reverseLikes)
+              .where(
+                and(
+                  eq(reverseLikes.likerId, likesTable.likedId),
+                  eq(reverseLikes.likedId, userId),
+                ),
+              ),
+          ),
+        ),
+      );
   },
 };

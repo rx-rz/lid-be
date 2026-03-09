@@ -20,6 +20,15 @@ import { InferEnum } from "drizzle-orm";
 
 export const genderEnum = pgEnum("gender", ["MAN", "WOMAN", "NONBINARY"]);
 
+export const onboardingPageEnum = pgEnum("onboarding_page", [
+  "DisplayName",
+  "Birthday",
+  "Gender",
+  "DatingPreference",
+  "Interests",
+  "AddPhotos",
+]);
+
 export const subscriptionEnum = pgEnum("subscription_type", [
   "free",
   "premium",
@@ -32,10 +41,9 @@ export const whyHereEnum = pgEnum("whyhere_enum", [
   "nonbinary",
 ]);
 
-// export const likertEnum = pgEnum("")
-
 export type Gender = InferEnum<typeof genderEnum>;
 export type SubscriptionType = InferEnum<typeof subscriptionEnum>;
+export type OnboardingPage = InferEnum<typeof onboardingPageEnum>;
 
 export const reportStatusEnum = pgEnum("report_status", [
   "pending",
@@ -57,6 +65,7 @@ export const usersTable = pgTable(
     lastLogin: timestamp("last_login", { withTimezone: true }),
     subscriptionType: subscriptionEnum("subscription_type").default("free"),
     phone: varchar("phone", { length: 20 }),
+    onboardingPage: onboardingPageEnum("onboarding_page"),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true })
       .notNull()

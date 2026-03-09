@@ -5,6 +5,7 @@ import { clerkPlugin } from "elysia-clerk";
 import { userRepo } from "../../repo/user.repo";
 import { blockMiddleware } from "../../middleware/block";
 import { userService } from "./user.services";
+import { interactionService } from "../interaction/interaction.services";
 
 const MAX_DISTANCE = 22226378.14;
 
@@ -78,7 +79,6 @@ export const userRoutes = new Elysia({ name: "routes.user" })
         return data;
       } catch (error: any) {
         set.status = 500;
-        console.log(error);
         return { error: error.message };
       }
     },
@@ -117,6 +117,16 @@ export const userRoutes = new Elysia({ name: "routes.user" })
           t.Union([t.Literal("free"), t.Literal("premium"), t.Literal("gold")]),
         ),
         phone: t.Optional(t.String()),
+        onboardingPage: t.Optional(
+          t.Union([
+            t.Literal("DisplayName"),
+            t.Literal("Birthday"),
+            t.Literal("Gender"),
+            t.Literal("DatingPreference"),
+            t.Literal("Interests"),
+            t.Literal("AddPhotos"),
+          ]),
+        ),
         showGender: t.Optional(t.Boolean()),
       }),
       response: {
@@ -174,7 +184,43 @@ export const userRoutes = new Elysia({ name: "routes.user" })
       },
     },
   )
+  .get(
+    "/user/:userId/mutual-likes",
+    async ({ params: { userId }, set }) => {
+      const data = await interactionService.getMutualLikes(userId);
+      set.status = 200;
+      return { mutualLikes: data };
+    },
+    {
+      params: t.Object({
+        userId: t.String({ minLength: 1, error: "User ID is required" }),
+      }),
+      response: {
+        200: t.Object({
+          mutualLikes: t.Array(
+            t.Object({
+              userId: t.String(),
 
+              likedAt: t.Union([t.Date(), t.String()]),
+              superLike: t.Boolean(),
+              user: t.Object({
+                id: t.String(),
+                name: t.Nullable(t.String()),
+                email: t.Nullable(t.String()),
+              }),
+              images: t.Any(),
+            }),
+          ),
+        }),
+      },
+      detail: {
+        tags: ["Discovery"],
+        summary: "Get Mutual Likes",
+        description:
+          "Returns all users who have liked each other (but haven't matched yet).",
+      },
+    },
+  )
   .get(
     "/user/:userId",
     async ({ params: { userId }, set }) => {
@@ -212,6 +258,18 @@ export const userRoutes = new Elysia({ name: "routes.user" })
               }),
             ),
           ),
+          onboardingPage: t.Optional(
+            t.Nullable(
+              t.Union([
+                t.Literal("DisplayName"),
+                t.Literal("Birthday"),
+                t.Literal("Gender"),
+                t.Literal("DatingPreference"),
+                t.Literal("Interests"),
+                t.Literal("AddPhotos"),
+              ]),
+            ),
+          ),
         }),
         404: ErrorResponse,
       },
@@ -243,17 +301,6 @@ export const userRoutes = new Elysia({ name: "routes.user" })
     },
   )
 
-  // .use(
-  //   rateLimit({
-  //     generator: (req, server) => {
-  //       const forwardedFor = req.headers.get("x-forwarded-for");
-  //       if (forwardedFor) {
-  //         return forwardedFor.split(",")[0].trim();
-  //       }
-  //       return server?.requestIP(req)?.address ?? "127.0.0.1";
-  //     },
-  //   }),
-  // )
   .use(blockMiddleware)
   .get(
     "/users",
@@ -340,32 +387,60 @@ export const userRoutes = new Elysia({ name: "routes.user" })
       return { users };
     },
     {
-      query: t.Object({
-        userId: t.String(),
-        radius: t.String(),
-        age: t.String(),
-        gender: t.Optional(t.String()),
-        activity: t.Optional(t.Literal("justJoined")),
-        country: t.Optional(t.String()),
-        // Advanced — now arrays as JSON strings e.g. '["Leo","Aries"]'b
-        smoking: t.Optional(t.String()),
-        hasBio: t.Optional(t.String()),
-        drinking: t.Optional(t.String()),
-        minPhotos: t.Optional(t.String()),
-        familyPlans: t.Optional(t.String()),
-        zodiac: t.Optional(t.String()),
-        height: t.Optional(t.String()),
-        ethnicity: t.Optional(t.String()),
-        educationLevel: t.Optional(t.String()),
-        lookingFor: t.Optional(t.Any()),
-        workoutFrequency: t.Optional(t.String()),
-        personality: t.Optional(t.String()),
-        language: t.Optional(t.String()),
-        bodyType: t.Optional(t.String()),
-        loveLanguage: t.Optional(t.String()),
-        opennessToLongDistance: t.Optional(t.String()),
-        willingToRelocate: t.Optional(t.String()),
-      }),
+      query: t.Object(
+        {
+          userId: t.String(),
+          radius: t.String(),
+          age: t.String(),
+          gender: t.Optional(t.String()),
+          activity: t.Optional(t.Literal("justJoined")),
+          country: t.Optional(t.String()),
+          smoking: t.Optional(t.String()),
+          hasBio: t.Optional(t.String()),
+          drinking: t.Optional(t.String()),
+          minPhotos: t.Optional(t.String()),
+          familyPlans: t.Optional(t.String()),
+          zodiac: t.Optional(t.String()),
+          height: t.Optional(t.String()),
+          ethnicity: t.Optional(t.String()),
+          educationLevel: t.Optional(t.String()),
+          lookingFor: t.Optional(t.Any()),
+          workoutFrequency: t.Optional(t.String()),
+          personality: t.Optional(t.String()),
+          language: t.Optional(t.String()),
+          bodyType: t.Optional(t.String()),
+          loveLanguage: t.Optional(t.String()),
+          opennessToLongDistance: t.Optional(t.String()),
+          willingToRelocate: t.Optional(t.String()),
+        },
+        {
+          examples: {
+            userId: "user_123",
+            radius: '["50", "100"]',
+            age: '["25", "35"]',
+            activity: "justJoined",
+            country: "US",
+            gender: '["male","female"]',
+            ethnicity: '["black","white","asian"]',
+            zodiac: '["leo","aries","scorpio"]',
+            smoking: '"never"',
+            drinking: '["socially","never"]',
+            hasBio: "true",
+            minPhotos: "2",
+            familyPlans: '["wantKids","openToKids"]',
+            height: '["160-170","170-180"]',
+            educationLevel: '["bachelors","masters"]',
+            lookingFor: '["relationship","somethingSerious"]',
+            workoutFrequency: '["often","sometimes"]',
+            personality: '["introvert","ambivert"]',
+            language: '["english","spanish"]',
+            bodyType: '["athletic","average"]',
+            loveLanguage: '["qualityTime","actsOfService"]',
+            opennessToLongDistance: '["yes","maybe"]',
+            willingToRelocate: '["yes","maybe"]',
+          },
+        },
+      ),
       response: {
         200: t.Object({
           users: t.Array(t.Any()),

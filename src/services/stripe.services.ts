@@ -1,8 +1,9 @@
-import Stripe from 'stripe';
-import { paymentRepo } from '../repo/payment.repo';
-import { logger } from '../utils/logger'; 
+import Stripe from "stripe";
+import { paymentRepo } from "../repo/payment.repo";
+import { logger } from "../utils/logger";
+import { userRepo } from "../repo/user.repo";
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: '2025-02-24.acacia',
+  apiVersion: "2025-02-24.acacia",
 });
 
 export const stripeService = {
@@ -20,17 +21,21 @@ export const stripeService = {
     return await paymentRepo.getCustomerByUserId(userId);
   },
 
-  createSubscription: async (customerId: string, priceId: string, userId: string) => {
+  createSubscription: async (
+    customerId: string,
+    priceId: string,
+    userId: string,
+  ) => {
     const subscription = await stripe.subscriptions.create({
       customer: customerId,
       items: [{ price: priceId }],
-      payment_behavior: 'default_incomplete',
-      expand: ['latest_invoice.payment_intent'],
+      payment_behavior: "default_incomplete",
+      expand: ["latest_invoice.payment_intent"],
     });
 
     // Update user's payment status in database
     await paymentRepo.updateStatusByUserId(userId, {
-      paymentStatus: 'pending',
+      paymentStatus: "pending",
       lastUpdated: new Date(),
     });
 
@@ -38,7 +43,7 @@ export const stripeService = {
     const paymentIntent = invoice.payment_intent as Stripe.PaymentIntent;
 
     if (!paymentIntent?.client_secret) {
-      throw new Error('Payment intent is missing client secret');
+      throw new Error("Payment intent is missing client secret");
     }
 
     return {
@@ -50,7 +55,7 @@ export const stripeService = {
   getSubscriptionPlans: async () => {
     const prices = await stripe.prices.list({
       active: true,
-      expand: ['data.product'],
+      expand: ["data.product"],
     });
 
     return prices.data.map((price) => ({
@@ -66,63 +71,74 @@ export const stripeService = {
 
   handleWebhookEvent: async (event: Stripe.Event) => {
     switch (event.type) {
-      case 'payment_intent.succeeded':
-        logger.info('[Stripe] Payment intent succeeded');
+      case "payment_intent.succeeded":
+        logger.info("[Stripe] Payment intent succeeded");
         break;
 
-      case 'invoice.payment_succeeded': {
+      case "invoice.payment_succeeded": {
         const invoice = event.data.object as Stripe.Invoice;
         const subscriptionId = invoice.subscription as string;
-        const subscription = await stripe.subscriptions.retrieve(subscriptionId, {
-          expand: ['items.data.price.product'],
-        });
+        const subscription = await stripe.subscriptions.retrieve(
+          subscriptionId,
+          {
+            expand: ["items.data.price.product"],
+          },
+        );
         const customerId = subscription.customer as string;
 
-        let subscriptionType = 'paid'; // default fallback
-        
+        let subscriptionType = "paid"; 
+
         if (invoice.lines?.data?.length > 0) {
           const lineItem = invoice.lines.data[0];
           if (lineItem.description) {
             const match = lineItem.description.match(/Diaspora (.+?) \(at/);
             if (match && match[1]) {
-              subscriptionType = match[1].toLowerCase().replace(/\s+/g, '-');
+              subscriptionType = match[1].toLowerCase().replace(/\s+/g, "-");
             }
           } else if (lineItem.price?.product) {
-            const product = typeof lineItem.price.product === 'string'
-              ? await stripe.products.retrieve(lineItem.price.product)
-              : lineItem.price.product;
-            
+            const product =
+              typeof lineItem.price.product === "string"
+                ? await stripe.products.retrieve(lineItem.price.product)
+                : lineItem.price.product;
+
             subscriptionType = (product as Stripe.Product)?.name
               ?.toLowerCase()
-              .replace(/\s+/g, '-');
+              .replace(/\s+/g, "-");
           }
         }
 
         await paymentRepo.updateStatusByCustomerId(customerId, {
-          paymentStatus: 'active',
+          paymentStatus: "active",
           nextBillingDate: new Date(subscription.current_period_end * 1000),
           lastUpdated: new Date(),
           subscriptionType,
         });
+        const paymentRecord =
+          await paymentRepo.getCustomerByStripeId(customerId);
+        if (paymentRecord?.userId) {
+          await userRepo.updateUser(paymentRecord.userId, {
+            subscriptionType: subscriptionType as any, 
+          });
+        }
         break;
       }
 
-      case 'invoice.created':
+      case "invoice.created":
         // TODO: generate pdf if needed and send to user's email
-        logger.info('[Stripe] Invoice created');
+        logger.info("[Stripe] Invoice created");
         break;
 
-      case 'customer.subscription.deleted': {
+      case "customer.subscription.deleted": {
         const deletedSubscription = event.data.object as Stripe.Subscription;
         const deletedCustomerId = deletedSubscription.customer as string;
 
         await paymentRepo.updateStatusByCustomerId(deletedCustomerId, {
-          paymentStatus: 'inactive',
-          subscriptionType: 'free',
+          paymentStatus: "inactive",
+          subscriptionType: "free",
           lastUpdated: new Date(),
         });
         break;
       }
     }
-  }
+  },
 };

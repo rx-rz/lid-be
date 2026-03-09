@@ -3,11 +3,18 @@ import { db } from "../db/db";
 import { preferencesTable } from "../db/schema";
 
 export const preferenceRepo = {
-  createPreference: async (userId: string, lookingToDate: string[]) => {
+  upsertPreference: async (userId: string, lookingToDate: string[]) => {
     const [preference] = await db
       .insert(preferencesTable)
       .values({ userId, lookingToDate })
+      .onConflictDoUpdate({
+        target: preferencesTable.userId, 
+        set: {
+          lookingToDate,
+        },
+      })
       .returning();
+
     return preference;
   },
 

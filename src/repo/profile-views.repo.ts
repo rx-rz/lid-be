@@ -20,6 +20,7 @@ export const profileViewsRepo = {
       .select({
         viewer: {
           id: usersTable.id,
+          birthday: usersTable.birthday,
           displayName: usersTable.displayName,
           image: imagesTable.imageUrl,
         },

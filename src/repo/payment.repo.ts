@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
-import { db } from "../db/db"; 
-import { paymentsTable } from "../db/schema"; 
+import { db } from "../db/db";
+import { paymentsTable } from "../db/schema";
 export const paymentRepo = {
   createCustomerRecord: async (userId: string, stripeCustomerId: string) => {
     const [record] = await db
@@ -20,6 +20,14 @@ export const paymentRepo = {
       .select()
       .from(paymentsTable)
       .where(eq(paymentsTable.userId, userId));
+    return record;
+  },
+
+  getCustomerByStripeId: async (customerId: string) => {
+    const [record] = await db
+      .select()
+      .from(paymentsTable)
+      .where(eq(paymentsTable.stripeCustomerId, customerId));
     return record;
   },
 

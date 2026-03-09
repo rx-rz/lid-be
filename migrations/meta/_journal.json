@@ -43,6 +43,13 @@
       "when": 1772624216008,
       "tag": "0005_dusty_mole_man",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1773053597579,
+      "tag": "0006_special_mephistopheles",
+      "breakpoints": true
     }
   ]
 }
