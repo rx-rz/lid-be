@@ -137,7 +137,8 @@ CREATE TABLE "preferences" (
 	"personality_profile" text DEFAULT '',
 	"relationship_status" varchar(50) DEFAULT '',
 	"willing_to_relocate" boolean,
-	"openness_to_long_distance" boolean
+	"openness_to_long_distance" boolean,
+	CONSTRAINT "preferences_user_id_unique" UNIQUE("user_id")
 );
 --> statement-breakpoint
 CREATE TABLE "premium_features" (
