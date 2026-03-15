@@ -1,5 +1,5 @@
 import { eq } from "drizzle-orm";
-import { db } from "../db/db";
+import { DrizzleDB, withDb } from "../db/db";
 import {
   profilesTable,
   usersTable,
@@ -8,15 +8,21 @@ import {
 } from "../db/schema";
 
 export const profileRepo = {
-  upsertProfile: async (userId: string, bio: string, interests: string[]) => {
-    const [profile] = await db
+  upsertProfile: async (
+    userId: string,
+    bio: string,
+    interests: string[],
+    db?: DrizzleDB,
+  ) => {
+    const dbInstance = withDb(db);
+    const [profile] = await dbInstance
       .insert(profilesTable)
       .values({ userId, bio, interests })
       .onConflictDoUpdate({
         target: profilesTable.userId,
         set: {
-          bio: profilesTable.bio,
-          interests: profilesTable.interests,
+          bio: bio,
+          interests: interests,
           updatedAt: new Date(),
         },
       })
@@ -24,9 +30,10 @@ export const profileRepo = {
     return profile;
   },
 
-  getProfileWithDetails: async (userId: string) => {
-    // 1. Fetch the base profile, user, and preferences
-    const [profileRecord] = await db
+  getProfileWithDetails: async (userId: string, db?: DrizzleDB) => {
+    const dbInstance = withDb(db);
+
+    const [profileRecord] = await dbInstance
       .select({
         profile: profilesTable,
         user: {
@@ -48,8 +55,7 @@ export const profileRepo = {
 
     if (!profileRecord) return null;
 
-    // 2. Fetch images separately to avoid complex SQL aggregation dialect issues
-    const images = await db
+    const images = await dbInstance
       .select({ imageUrl: imagesTable.imageUrl, order: imagesTable.order })
       .from(imagesTable)
       .where(eq(imagesTable.userId, userId));
@@ -58,15 +64,17 @@ export const profileRepo = {
       ...profileRecord.profile,
       user: profileRecord.user,
       preferences: profileRecord.preferences,
-      images: images || [],
+      images: images ?? [],
     };
   },
 
   updateProfile: async (
     userId: string,
     data: { bio?: string; interests?: string[] },
+    db?: DrizzleDB,
   ) => {
-    const [profile] = await db
+    const dbInstance = withDb(db);
+    const [profile] = await dbInstance
       .update(profilesTable)
       .set({ ...data, updatedAt: new Date() })
       .where(eq(profilesTable.userId, userId))
@@ -74,8 +82,9 @@ export const profileRepo = {
     return profile;
   },
 
-  deleteProfile: async (userId: string) => {
-    const [profile] = await db
+  deleteProfile: async (userId: string, db?: DrizzleDB) => {
+    const dbInstance = withDb(db);
+    const [profile] = await dbInstance
       .delete(profilesTable)
       .where(eq(profilesTable.userId, userId))
       .returning();

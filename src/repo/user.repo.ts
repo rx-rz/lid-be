@@ -7,10 +7,7 @@ import {
   isNotNull,
   not,
   notExists,
-  or,
   sql,
-  ilike,
-  arrayContains,
 } from "drizzle-orm";
 import {
   usersTable,
@@ -25,49 +22,30 @@ import {
   InsertUser,
   matchesTable,
 } from "../db/schema";
-import { db } from "../db/db";
+import { DrizzleDB, withDb } from "../db/db";
+import { GetUsersFilters } from "../api/user/user.services";
 
-export type GetUsersFilters = {
-  currentUserId: string;
-  blockedUserIds?: string[];
-  gender?: string[];
-  activity?: "justJoined";
-  country?: string;
-  smoking?: string[];
-  drinking?: string[];
-  ethnicity?: string[];
-  educationLevel?: string[];
-  lookingFor?: string[];
-  height?: string[];
-  zodiac?: string[];
-  familyPlans?: string[];
-  hasBio?: boolean;
-  workoutFrequency?: string[];
-  personality?: string[];
-  language?: string[];
-  bodyType?: string[];
-  loveLanguage?: string[];
-  opennessToLongDistance?: string[];
-  willingToRelocate?: string[];
-};
+
 
 export const userRepo = {
-  createUser: async (data: InsertUser) => {
-    const [user] = await db.insert(usersTable).values(data).returning();
+  createUser: async (data: InsertUser, db?: DrizzleDB) => {
+    const dbInstance = withDb(db);
+    const [user] = await dbInstance.insert(usersTable).values(data).returning();
     return user;
   },
 
-  createProfile: async (userId: string) => {
-    const [profile] = await db
+  createProfile: async (userId: string, db?: DrizzleDB) => {
+    const dbInstance = withDb(db);
+    const [profile] = await dbInstance
       .insert(profilesTable)
       .values({ userId })
       .returning();
     return profile;
   },
 
-  updateUser: async (id: string, data: Partial<InsertUser>) => {
-    console.log({ id });
-    const [user] = await db
+  updateUser: async (id: string, data: Partial<InsertUser>, db?: DrizzleDB) => {
+    const dbInstance = withDb(db);
+    const [user] = await dbInstance
       .update(usersTable)
       .set(data)
       .where(eq(usersTable.id, id))
@@ -75,36 +53,38 @@ export const userRepo = {
     return user;
   },
 
-  getUserById: async (id: string) => {
-    const images = await db
+  getUserById: async (id: string, db?: DrizzleDB) => {
+    const dbInstance = withDb(db);
+    const images = await dbInstance
       .select()
       .from(imagesTable)
       .where(eq(imagesTable.userId, id));
 
-    const [user] = await db
+    const [user] = await dbInstance
       .select({
         id: usersTable.id,
         displayName: usersTable.displayName,
         email: usersTable.email,
         subscription: paymentsTable.subscriptionType,
         birthday: usersTable.birthday,
-        onboardingPage: usersTable.onboardingPage
+        onboardingPage: usersTable.onboardingPage,
       })
       .from(usersTable)
       .leftJoin(paymentsTable, eq(usersTable.id, paymentsTable.userId))
       .where(eq(usersTable.id, id));
 
     if (!user) return undefined;
-    return { ...user, image: images[0]?.imageUrl || null };
+    return { ...user, image: images[0]?.imageUrl ?? null };
   },
-  
-  getUserWithFcmToken: async (id: string) => {
-    const images = await db
+
+  getUserWithFcmToken: async (id: string, db?: DrizzleDB) => {
+    const dbInstance = withDb(db);
+    const images = await dbInstance
       .select()
       .from(imagesTable)
       .where(eq(imagesTable.userId, id));
 
-    const [user] = await db
+    const [user] = await dbInstance
       .select({
         id: usersTable.id,
         displayName: usersTable.displayName,
@@ -117,11 +97,12 @@ export const userRepo = {
       .where(eq(usersTable.id, id));
 
     if (!user) return undefined;
-    return { ...user, image: images[0]?.imageUrl || null };
+    return { ...user, image: images[0]?.imageUrl ?? null };
   },
 
-  checkUserExists: async (userId: string): Promise<boolean> => {
-    const [user] = await db
+  checkUserExists: async (userId: string, db?: DrizzleDB): Promise<boolean> => {
+    const dbInstance = withDb(db);
+    const [user] = await dbInstance
       .select({ id: usersTable.id })
       .from(usersTable)
       .where(eq(usersTable.id, userId))
@@ -129,8 +110,12 @@ export const userRepo = {
     return !!user;
   },
 
-  getUserByClerkId: async (clerkId: string): Promise<boolean> => {
-    const [user] = await db
+  getUserByClerkId: async (
+    clerkId: string,
+    db?: DrizzleDB,
+  ): Promise<boolean> => {
+    const dbInstance = withDb(db);
+    const [user] = await dbInstance
       .select({ id: usersTable.id })
       .from(usersTable)
       .where(eq(usersTable.id, clerkId))
@@ -138,8 +123,9 @@ export const userRepo = {
     return !!user;
   },
 
-  getUserLocation: async (userId: string) => {
-    const [location] = await db
+  getUserLocation: async (userId: string, db?: DrizzleDB) => {
+    const dbInstance = withDb(db);
+    const [location] = await dbInstance
       .select({
         latitude: locationsTable.latitude,
         longitude: locationsTable.longitude,
@@ -152,16 +138,18 @@ export const userRepo = {
     return location;
   },
 
-  deleteUser: async (id: string) => {
-    const [deleted] = await db
+  deleteUser: async (id: string, db?: DrizzleDB) => {
+    const dbInstance = withDb(db);
+    const [deleted] = await dbInstance
       .delete(usersTable)
       .where(eq(usersTable.id, id))
       .returning();
     return deleted;
   },
 
-  updateFcmToken: async (userId: string, fcmToken: string) => {
-    const [user] = await db
+  updateFcmToken: async (userId: string, fcmToken: string, db?: DrizzleDB) => {
+    const dbInstance = withDb(db);
+    const [user] = await dbInstance
       .update(usersTable)
       .set({ fcmToken })
       .where(eq(usersTable.id, userId))
@@ -169,8 +157,13 @@ export const userRepo = {
     return user;
   },
 
-  updateStreamToken: async (userId: string, streamToken: string) => {
-    const [user] = await db
+  updateStreamToken: async (
+    userId: string,
+    streamToken: string,
+    db?: DrizzleDB,
+  ) => {
+    const dbInstance = withDb(db);
+    const [user] = await dbInstance
       .update(usersTable)
       .set({ streamToken })
       .where(eq(usersTable.id, userId))
@@ -178,7 +171,8 @@ export const userRepo = {
     return user;
   },
 
-  findUsersWithFilters: async (filters: GetUsersFilters) => {
+  findUsersWithFilters: async (filters: GetUsersFilters, db?: DrizzleDB) => {
+    const dbInstance = withDb(db);
     const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
 
     const queryConditions = [
@@ -189,11 +183,7 @@ export const userRepo = {
         : undefined,
 
       filters.lookingFor?.length
-        ? inArray(usersTable.gender, filters.lookingFor as any[])
-        : undefined,
-
-      filters.gender?.length
-        ? inArray(usersTable.gender, filters.gender as any[])
+        ? inArray(usersTable.gender, filters.lookingFor)
         : undefined,
 
       filters.activity === "justJoined"
@@ -205,31 +195,20 @@ export const userRepo = {
         : undefined,
 
       notExists(
-        db
-          .select()
+        dbInstance
+          .select({ 1: sql`1` })
           .from(likesTable)
           .where(
             and(
               eq(likesTable.likerId, filters.currentUserId),
               eq(likesTable.likedId, usersTable.id),
-              or(
-                gte(likesTable.likedAt, sql`now() - interval '30 days'`),
-                sql`EXISTS (
-                SELECT 1 FROM ${matchesTable}
-                WHERE (
-                  (${matchesTable.user1Id} = ${filters.currentUserId} AND ${matchesTable.user2Id} = ${usersTable.id})
-                  OR
-                  (${matchesTable.user1Id} = ${usersTable.id} AND ${matchesTable.user2Id} = ${filters.currentUserId})
-                )
-              )`,
-              ),
             ),
           ),
       ),
 
       notExists(
-        db
-          .select()
+        dbInstance
+          .select({ 1: sql`1` })
           .from(dislikesTable)
           .where(
             and(
@@ -238,9 +217,18 @@ export const userRepo = {
             ),
           ),
       ),
-    ].filter(Boolean);
 
-    const rawUsers = await db
+      notExists(
+        dbInstance
+          .select({ 1: sql`1` })
+          .from(matchesTable)
+          .where(
+            sql`(${matchesTable.user1Id} = ${filters.currentUserId} AND ${matchesTable.user2Id} = ${usersTable.id}) OR (${matchesTable.user1Id} = ${usersTable.id} AND ${matchesTable.user2Id} = ${filters.currentUserId})`,
+          ),
+      ),
+    ].filter((c) => c !== undefined);
+
+    const rawUsers = await dbInstance
       .select({
         user: usersTable,
         birthday: usersTable.birthday,
@@ -250,6 +238,11 @@ export const userRepo = {
         countryAbbreviation: locationsTable.countryAbbreviation,
         preferences: preferencesTable,
         profile: profilesTable,
+        hasLikedLoggedInUser: sql<boolean>`EXISTS (
+          SELECT 1 FROM ${likesTable}
+          WHERE ${likesTable.likerId} = ${usersTable.id}
+          AND ${likesTable.likedId} = ${filters.currentUserId}
+        )`,
       })
       .from(usersTable)
       .leftJoin(locationsTable, eq(usersTable.id, locationsTable.userId))
@@ -262,7 +255,7 @@ export const userRepo = {
 
     const allImages =
       userIds.length > 0
-        ? await db
+        ? await dbInstance
             .select()
             .from(imagesTable)
             .where(
@@ -292,7 +285,8 @@ export const userRepo = {
       countryAbbreviation: u.countryAbbreviation,
       preferences: u.preferences,
       profile: u.profile,
-      images: imagesByUser[u.user.id] || [],
+      hasLikedLoggedInUser: u.hasLikedLoggedInUser,
+      images: imagesByUser[u.user.id] ?? [],
     }));
   },
 };

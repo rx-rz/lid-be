@@ -1,6 +1,8 @@
-CREATE TYPE "public"."gender" AS ENUM('man', 'woman', 'nonbinary');--> statement-breakpoint
+CREATE TYPE "public"."gender" AS ENUM('MAN', 'WOMAN', 'NONBINARY');--> statement-breakpoint
+CREATE TYPE "public"."onboarding_page" AS ENUM('DisplayName', 'Birthday', 'Gender', 'DatingPreference', 'Interests', 'AddPhotos');--> statement-breakpoint
 CREATE TYPE "public"."report_status" AS ENUM('pending', 'reviewed', 'resolved', 'dismissed');--> statement-breakpoint
 CREATE TYPE "public"."subscription_type" AS ENUM('free', 'premium', 'gold');--> statement-breakpoint
+CREATE TYPE "public"."whyhere_enum" AS ENUM('man', 'woman', 'nonbinary');--> statement-breakpoint
 CREATE TABLE "blocks" (
 	"id" text PRIMARY KEY NOT NULL,
 	"blocker_id" text NOT NULL,
@@ -45,7 +47,7 @@ CREATE TABLE "images" (
 	"image_url" text NOT NULL,
 	"order" integer DEFAULT 1 NOT NULL,
 	"created_at" timestamp DEFAULT now() NOT NULL,
-	"updated_at" timestamp
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE "likes" (
@@ -99,15 +101,16 @@ CREATE TABLE "preferences" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"user_id" text NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
-	"updated_at" timestamp NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"interests" text[],
 	"looking_to_date" text[],
 	"ethnicity" varchar(50) DEFAULT '',
 	"pronouns" varchar(50) DEFAULT '',
 	"zodiac" varchar(50) DEFAULT '',
 	"bio" varchar(50) DEFAULT '',
-	"smoking" boolean DEFAULT false,
-	"drinking" boolean DEFAULT false,
+	"why_here" "whyhere_enum",
+	"smoking" boolean,
+	"drinking" boolean,
 	"religion" varchar(50) DEFAULT '',
 	"education" varchar(50) DEFAULT '',
 	"pets" varchar(50) DEFAULT '',
@@ -131,9 +134,10 @@ CREATE TABLE "preferences" (
 	"love_language" varchar(50) DEFAULT '',
 	"travel_plans" varchar(100) DEFAULT '',
 	"personality" varchar(50) DEFAULT '',
+	"personality_profile" text DEFAULT '',
 	"relationship_status" varchar(50) DEFAULT '',
-	"willing_to_relocate" boolean DEFAULT false,
-	"openness_to_long_distance" boolean DEFAULT false
+	"willing_to_relocate" boolean,
+	"openness_to_long_distance" boolean
 );
 --> statement-breakpoint
 CREATE TABLE "premium_features" (
@@ -171,7 +175,7 @@ CREATE TABLE "reports" (
 	"details" text,
 	"status" "report_status" DEFAULT 'pending',
 	"created_at" timestamp DEFAULT now() NOT NULL,
-	"updated_at" timestamp
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE "roulette_matches" (
@@ -190,8 +194,14 @@ CREATE TABLE "roulette_sessions" (
 	"status" varchar(20),
 	"interests" text[],
 	"created_at" timestamp DEFAULT now() NOT NULL,
-	"updated_at" timestamp,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"previous_partners" text[]
+);
+--> statement-breakpoint
+CREATE TABLE "swipe_limits" (
+	"user_id" text NOT NULL,
+	"swipe_count" integer DEFAULT 0 NOT NULL,
+	"window_start" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE "user_activity" (
@@ -210,9 +220,10 @@ CREATE TABLE "users" (
 	"show_gender" boolean DEFAULT false,
 	"last_login" timestamp with time zone,
 	"subscription_type" "subscription_type" DEFAULT 'free',
-	"phone" varchar(11),
+	"phone" varchar(20),
+	"onboarding_page" "onboarding_page",
 	"created_at" timestamp with time zone DEFAULT now(),
-	"updated_at" timestamp,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"fcm_token" text,
 	"stream_token" text,
 	CONSTRAINT "users_email_unique" UNIQUE("email")
@@ -253,6 +264,7 @@ ALTER TABLE "reports" ADD CONSTRAINT "reports_reported_id_users_id_fk" FOREIGN K
 ALTER TABLE "roulette_matches" ADD CONSTRAINT "roulette_matches_session1_id_roulette_sessions_id_fk" FOREIGN KEY ("session1_id") REFERENCES "public"."roulette_sessions"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "roulette_matches" ADD CONSTRAINT "roulette_matches_session2_id_roulette_sessions_id_fk" FOREIGN KEY ("session2_id") REFERENCES "public"."roulette_sessions"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "roulette_sessions" ADD CONSTRAINT "roulette_sessions_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "swipe_limits" ADD CONSTRAINT "swipe_limits_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "user_activity" ADD CONSTRAINT "user_activity_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "video_calls" ADD CONSTRAINT "video_calls_caller_id_users_id_fk" FOREIGN KEY ("caller_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "video_calls" ADD CONSTRAINT "video_calls_receiver_id_users_id_fk" FOREIGN KEY ("receiver_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
@@ -262,6 +274,7 @@ CREATE UNIQUE INDEX "unique_location_idx" ON "location" USING btree ("user_id");
 CREATE UNIQUE INDEX "unique_payment_idx" ON "payment" USING btree ("user_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "unique_preferences_idx" ON "preferences" USING btree ("user_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "unique_roulette_user_idx" ON "roulette_sessions" USING btree ("user_id");--> statement-breakpoint
+CREATE UNIQUE INDEX "unique_swipe_limit_idx" ON "swipe_limits" USING btree ("user_id");--> statement-breakpoint
 CREATE INDEX "email_idx" ON "users" USING btree ("email");--> statement-breakpoint
 CREATE INDEX "login_idx" ON "users" USING btree ("last_login" DESC NULLS LAST);--> statement-breakpoint
 CREATE INDEX "displayName_idx" ON "users" USING btree ("display_name");--> statement-breakpoint

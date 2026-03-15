@@ -16,6 +16,7 @@
     "ably": "^2.18.0",
     "bullmq": "^5.70.1",
     "cloudinary": "^2.9.0",
+    "coordinate_to_country": "^1.1.0",
     "dotenv": "^17.3.1",
     "drizzle-orm": "^0.45.1",
     "elysia": "latest",

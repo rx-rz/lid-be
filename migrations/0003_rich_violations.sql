@@ -1,1 +1,0 @@
-ALTER TABLE "users" ALTER COLUMN "phone" SET DATA TYPE varchar(20);

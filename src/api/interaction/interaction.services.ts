@@ -3,6 +3,8 @@ import { matchRepo } from "../../repo/match.repo";
 import { userRepo } from "../../repo/user.repo";
 import { fcmAdmin } from "../../services/fcm";
 import { logger } from "../../utils/logger";
+import { getAge } from "../user/user.services";
+
 
 const enforceSwipeLimit = async (
   userId: string,
@@ -12,6 +14,22 @@ const enforceSwipeLimit = async (
     await interactionRepo.checkAndIncrementSwipeLimit(userId);
   }
 };
+
+const formatUserWithAge = ({ user, ...rest }: any) => {
+  if (!user) {
+    return { ...rest, user: null };
+  }
+  const { birthday, ...userRest } = user;
+  console.log({user, b: getAge(user.birthday)})
+  return {
+    ...rest,
+    user: {
+      ...userRest,
+      age: getAge(birthday),
+    },
+  };
+};
+
 export const interactionService = {
   likeUser: async (
     likerId: string,
@@ -114,81 +132,20 @@ export const interactionService = {
 
     return dislike;
   },
+
   getLikedUsers: async (userId: string) => {
     const likedUsers = await interactionRepo.getLikedUsers(userId);
-
-    const calculateAge = (
-      birthdayString: string | null | Date,
-    ): number | null => {
-      if (!birthdayString) return null;
-      const today = new Date();
-      const birthDate = new Date(birthdayString);
-      let age = today.getFullYear() - birthDate.getFullYear();
-      const monthDifference = today.getMonth() - birthDate.getMonth();
-
-      if (
-        monthDifference < 0 ||
-        (monthDifference === 0 && today.getDate() < birthDate.getDate())
-      ) {
-        age--;
-      }
-      return age;
-    };
-
-    return likedUsers.map(({ user, ...rest }) => {
-      if (!user) {
-        return { ...rest, user: null };
-      }
-      const { birthday, ...userRest } = user;
-      return {
-        ...rest,
-        user: {
-          ...userRest,
-          age: calculateAge(birthday),
-        },
-      };
-    });
+    return likedUsers.map(formatUserWithAge);
   },
 
   getReceivedLikes: async (userId: string) => {
     const receivedLikes = await interactionRepo.getReceivedLikes(userId);
-
-    const calculateAge = (
-      birthdayString: string | null | Date,
-    ): number | null => {
-      if (!birthdayString) return null;
-      const today = new Date();
-      const birthDate = new Date(birthdayString);
-      let age = today.getFullYear() - birthDate.getFullYear();
-      const monthDifference = today.getMonth() - birthDate.getMonth();
-
-      if (
-        monthDifference < 0 ||
-        (monthDifference === 0 && today.getDate() < birthDate.getDate())
-      ) {
-        age--;
-      }
-      return age;
-    };
-
-    return receivedLikes.map(({ user, ...rest }) => {
-
-      if (!user) {
-        return { ...rest, user: null };
-      }
-
-      const { birthday, ...userRest } = user;
-
-      return {
-        ...rest,
-        user: {
-          ...userRest,
-          age: calculateAge(birthday),
-        },
-      };
-    });
+    return receivedLikes.map(formatUserWithAge);
   },
+
   getMutualLikes: async (userId: string) => {
-    return await interactionRepo.getMutualLikes(userId);
+    const mutualLikes = await interactionRepo.getMutualLikes(userId);
+    console.log({a: mutualLikes[0].user})
+    return mutualLikes.map(formatUserWithAge);
   },
 };

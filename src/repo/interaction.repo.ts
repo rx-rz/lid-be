@@ -55,6 +55,7 @@ export const interactionRepo = {
       .returning();
     return dislike;
   },
+
   getLikedUsers: async (userId: string) => {
     return await db
       .select({
@@ -82,7 +83,7 @@ export const interactionRepo = {
   getReceivedLikes: async (userId: string) => {
     return await db
       .select({
-        likedId: likesTable.likerId, 
+        likedId: likesTable.likerId,
         likedAt: likesTable.likedAt,
         superLike: likesTable.superLike,
         user: {
@@ -165,6 +166,7 @@ export const interactionRepo = {
       .set({ swipeCount: sql`${swipeLimitsTable.swipeCount} + 1` })
       .where(eq(swipeLimitsTable.userId, userId));
   },
+
   getMutualLikes: async (userId: string) => {
     const reverseLikes = alias(likesTable, "reverseLikes");
 
@@ -177,6 +179,7 @@ export const interactionRepo = {
           id: usersTable.id,
           name: usersTable.displayName,
           email: usersTable.email,
+          birthday: usersTable.birthday,
         },
         images: sql<string[]>`COALESCE(
         (SELECT array_agg(${imagesTable.imageUrl})

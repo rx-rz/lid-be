@@ -1,0 +1,1 @@
+ALTER TABLE "preferences" ADD CONSTRAINT "preferences_user_id_unique" UNIQUE("user_id");

@@ -1,3 +1,4 @@
+import { InternalServerError, NotFoundError } from "elysia";
 import { locationRepo } from "../../repo/location.repo";
 import { getCountryFromCoordinates } from "../../utils/location";
 
@@ -7,26 +8,36 @@ export const locationService = {
     latitude: string,
     longitude: string,
   ) => {
-    const country = await getCountryFromCoordinates(
-      parseFloat(latitude),
-      parseFloat(longitude),
-    );
+    const parsedLat = parseFloat(latitude);
+    const parsedLng = parseFloat(longitude);
 
-    if (country?.abrv) {
-      return await locationRepo.createLocation(
+    const isValidCoords = !isNaN(parsedLat) && !isNaN(parsedLng);
+    const country = isValidCoords
+      ? getCountryFromCoordinates(parsedLat, parsedLng)
+      : null;
+
+    const finalLat = country?.abrv ? latitude : "9.044679";
+    const finalLng = country?.abrv ? longitude : "7.51913154046585";
+    const finalCountry = country?.abrv ?? "NG";
+
+    let location;
+
+    try {
+      location = await locationRepo.createLocation(
         userId,
-        latitude,
-        longitude,
-        country.abrv,
+        finalLat,
+        finalLng,
+        finalCountry,
       );
+    } catch (error) {
+      throw new InternalServerError("Failed to create user location.");
     }
 
-    return await locationRepo.createLocation(
-      userId,
-      "9.044679",
-      "7.51913154046585",
-      "NG",
-    );
+    if (!location) {
+      throw new InternalServerError("Location could not be created.");
+    }
+
+    return location;
   },
 
   updateLocation: async (
@@ -35,11 +46,27 @@ export const locationService = {
     longitude: string,
     countryAbbreviation?: string,
   ) => {
-    return await locationRepo.updateLocation(
-      userId,
-      latitude,
-      longitude,
-      countryAbbreviation,
-    );
+    let location;
+
+    try {
+      location = await locationRepo.updateLocation(
+        userId,
+        latitude,
+        longitude,
+        countryAbbreviation,
+      );
+    } catch (error) {
+      throw new InternalServerError(
+        "An error occurred while updating the location.",
+      );
+    }
+
+    if (!location) {
+      throw new NotFoundError(
+        "Location record not found for the specified user.",
+      );
+    }
+
+    return location;
   },
 };

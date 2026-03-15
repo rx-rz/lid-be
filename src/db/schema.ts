@@ -85,6 +85,33 @@ export const usersTable = pgTable(
   ],
 );
 
+export const usersRelations = relations(usersTable, ({ one, many }) => ({
+  profile: one(profilesTable, {
+    fields: [usersTable.id],
+    references: [profilesTable.userId],
+  }),
+  preferences: one(preferencesTable, {
+    fields: [usersTable.id],
+    references: [preferencesTable.userId],
+  }),
+  location: one(locationsTable, {
+    fields: [usersTable.id],
+    references: [locationsTable.userId],
+  }),
+  userActivity: one(userActivityTable, {
+    fields: [usersTable.id],
+    references: [userActivityTable.userId],
+  }),
+  payments: many(paymentsTable),
+  images: many(imagesTable),
+  likesSent: many(likesTable, { relationName: "liker" }),
+  likesReceived: many(likesTable, { relationName: "liked" }),
+  dislikesSent: many(dislikesTable, { relationName: "disliker" }),
+  dislikesReceived: many(dislikesTable, { relationName: "disliked" }),
+  blocksSent: many(blocksTable, { relationName: "blocker" }),
+  blocksReceived: many(blocksTable, { relationName: "blocked" }),
+}));
+
 export type InsertUser = typeof usersTable.$inferInsert;
 export type SelectUser = typeof usersTable.$inferSelect;
 
@@ -117,6 +144,7 @@ export const preferencesTable = pgTable(
     id: serial("id").primaryKey(),
     userId: text("user_id")
       .notNull()
+      .unique()
       .references(() => usersTable.id, { onDelete: "cascade" }),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
@@ -134,8 +162,10 @@ export const preferencesTable = pgTable(
     zodiac: varchar("zodiac", { length: 50 }).default(""),
     bio: varchar("bio", { length: 50 }).default(""),
     whyHere: whyHereEnum("why_here"),
-    smoking: varchar("smoking", { length: 50 }),
-    drinking: varchar("drinking", { length: 50 }),
+
+    smoking: boolean("smoking"),
+    drinking: boolean("drinking"),
+
     religion: varchar("religion", { length: 50 }).default(""),
     education: varchar("education", { length: 50 }).default(""),
     pets: varchar("pets", { length: 50 }).default(""),
@@ -145,9 +175,11 @@ export const preferencesTable = pgTable(
     familyPlans: varchar("family_plans", { length: 50 }).default(""),
     gender: varchar("gender", { length: 50 }).default(""),
     height: varchar("height", { length: 50 }).default(""),
+
     hasBio: boolean("has_bio").default(false),
     minNumberOfPhotos: varchar("min_photos").default(""),
     connections: varchar("connections").default(""),
+
     jobTitle: varchar("job_title", { length: 100 }).default(""),
     company: varchar("company", { length: 100 }).default(""),
     school: varchar("school", { length: 100 }).default(""),
@@ -161,13 +193,13 @@ export const preferencesTable = pgTable(
     loveLanguage: varchar("love_language", { length: 50 }).default(""),
     travelPlans: varchar("travel_plans", { length: 100 }).default(""),
     personality: varchar("personality", { length: 50 }).default(""),
+    personalityProfile: text("personality_profile").default(""),
     relationshipStatus: varchar("relationship_status", { length: 50 }).default(
       "",
     ),
-    willingToRelocate: varchar("willing_to_relocate", { length: 50 }),
-    opennessToLongDistance: varchar("openness_to_long_distance", {
-      length: 50,
-    }),
+
+    willingToRelocate: boolean("willing_to_relocate"),
+    opennessToLongDistance: boolean("openness_to_long_distance"),
   },
   (table) => [uniqueIndex("unique_preferences_idx").on(table.userId)],
 );

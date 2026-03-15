@@ -11,7 +11,7 @@ export const profileService = {
     const profile = await profileRepo.getProfileWithDetails(userId);
     const l = await locationRepo.getLocationByUserId(userId);
     const location = l
-      ? await getCountryFromCoordinates(
+      ? getCountryFromCoordinates(
           parseFloat(l.latitude),
           parseFloat(l.longitude),
         )

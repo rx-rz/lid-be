@@ -7,15 +7,13 @@ import { blockMiddleware } from "../../middleware/block";
 import { userService } from "./user.services";
 import { interactionService } from "../interaction/interaction.services";
 
-const MAX_DISTANCE = 22226378.14;
-
 const ErrorResponse = t.Object({ error: t.String() });
 const FailResponse = t.Object({ status: t.String(), message: t.String() });
 
 const UserSchema = t.Object({
   id: t.String(),
   displayName: t.Union([t.String(), t.Null()]),
-  email: t.Union([t.String(), t.Null()]),
+  email: t.Union([t.String({ format: "email" }), t.Null()]),
   gender: t.Union([t.String(), t.Null()]),
   birthday: t.Union([t.String(), t.Null()]),
   verified: t.Union([t.Boolean(), t.Null()]),
@@ -29,13 +27,29 @@ const UserSchema = t.Object({
   streamToken: t.Union([t.String(), t.Null()]),
 });
 
+const parseMultiSelect = (val?: string): string[] | undefined => {
+  if (!val) return undefined;
+  try {
+    const parsed = JSON.parse(decodeURIComponent(val));
+    return Array.isArray(parsed) ? parsed : [parsed];
+  } catch {
+    return [val];
+  }
+};
+
+const parseBooleanFilter = (val?: string): boolean | undefined => {
+  if (val === "true") return true;
+  if (val === "false") return false;
+  return undefined;
+};
+
 export const userRoutes = new Elysia({ name: "routes.user" })
   .use(clerkPlugin())
   .post(
     "/user",
     async ({ body, set }) => {
       try {
-        const data = await userService.createUserAndProfile(
+        const data = await userService.createUserProfile(
           body.clerkId,
           body.phone,
         );
@@ -43,7 +57,7 @@ export const userRoutes = new Elysia({ name: "routes.user" })
         return data;
       } catch (error: any) {
         set.status = 400;
-        return { error: error.message };
+        return { error: error.message || "Failed to create user" };
       }
     },
     {
@@ -56,14 +70,13 @@ export const userRoutes = new Elysia({ name: "routes.user" })
         400: ErrorResponse,
       },
       detail: {
-        tags: ["User Management"],
+        tags: ["User"],
         summary: "Create User Profile (Onboarding Step 1)",
         description:
           "Creates a new user account and automatically generates a default profile attached to it.",
       },
     },
   )
-
   .patch(
     "/user/:id",
     async ({ params: { id }, body, set }) => {
@@ -72,33 +85,27 @@ export const userRoutes = new Elysia({ name: "routes.user" })
           ...body,
           lastLogin: body.lastLogin ? new Date(body.lastLogin) : undefined,
         });
+
         if (!data) {
           set.status = 404;
           return { error: "User not found or not updated" };
         }
+
         return data;
       } catch (error: any) {
         set.status = 500;
-        return { error: error.message };
+        return { error: error.message || "Internal server error" };
       }
     },
     {
       params: t.Object({ id: t.String() }),
       transform({ body }) {
-        if (body && body.birthday === "") {
-          body.birthday = undefined;
-        }
-        if (body && body.phone === "") {
-          body.phone = undefined;
-        }
-        if (body && body.email === "") {
-          body.email = undefined;
-        }
-        if (body && body.displayName === "") {
-          body.displayName = undefined;
-        }
-        if (body && body.lastLogin === "") {
-          body.lastLogin = undefined;
+        if (!body || typeof body !== "object") return;
+
+        for (const [key, value] of Object.entries(body)) {
+          if (value === "") {
+            (body as Record<string, any>)[key] = undefined;
+          }
         }
       },
       body: t.Object({
@@ -135,19 +142,18 @@ export const userRoutes = new Elysia({ name: "routes.user" })
         500: ErrorResponse,
       },
       detail: {
-        tags: ["User Management"],
+        tags: ["User"],
         summary: "Update User Details",
         description: "Partially updates an existing user's information.",
       },
     },
   )
-
   .patch(
     "/user/stream/:userId",
     async ({ params: { userId }, body, set }) => {
       const data = await userRepo.updateStreamToken(userId, body.streamToken);
       set.status = 201;
-      return { message: data?.streamToken || "" };
+      return { message: data?.streamToken ?? "" };
     },
     {
       params: t.Object({ userId: t.String() }),
@@ -156,12 +162,11 @@ export const userRoutes = new Elysia({ name: "routes.user" })
         201: t.Object({ message: t.String() }),
       },
       detail: {
-        tags: ["Integrations"],
+        tags: ["User"],
         summary: "Update Stream.io Token",
       },
     },
   )
-
   .delete(
     "/user/:id",
     async ({ params: { id }, set }) => {
@@ -177,7 +182,7 @@ export const userRoutes = new Elysia({ name: "routes.user" })
         204: t.Void(),
       },
       detail: {
-        tags: ["User Management"],
+        tags: ["User"],
         summary: "Delete User Account",
         description:
           "Permanently deletes a user and triggers a cascading deletion of all associated data.",
@@ -200,13 +205,13 @@ export const userRoutes = new Elysia({ name: "routes.user" })
           mutualLikes: t.Array(
             t.Object({
               userId: t.String(),
-
               likedAt: t.Union([t.Date(), t.String()]),
               superLike: t.Boolean(),
               user: t.Object({
                 id: t.String(),
                 name: t.Nullable(t.String()),
                 email: t.Nullable(t.String()),
+                age: t.Nullable(t.Number()),
               }),
               images: t.Any(),
             }),
@@ -214,7 +219,7 @@ export const userRoutes = new Elysia({ name: "routes.user" })
         }),
       },
       detail: {
-        tags: ["Discovery"],
+        tags: ["User"],
         summary: "Get Mutual Likes",
         description:
           "Returns all users who have liked each other (but haven't matched yet).",
@@ -224,7 +229,7 @@ export const userRoutes = new Elysia({ name: "routes.user" })
   .get(
     "/user/:userId",
     async ({ params: { userId }, set }) => {
-      const data = await userService.getUser(userId);
+      const data = await userService.getUserDetails(userId);
       if (!data) {
         set.status = 404;
         return { error: "User not found" };
@@ -274,12 +279,11 @@ export const userRoutes = new Elysia({ name: "routes.user" })
         404: ErrorResponse,
       },
       detail: {
-        tags: ["User Management"],
+        tags: ["User"],
         summary: "Get User by ID",
       },
     },
   )
-
   .put(
     "/fcm-token",
     async ({ body }) => {
@@ -295,22 +299,28 @@ export const userRoutes = new Elysia({ name: "routes.user" })
         200: t.Object({ message: t.String() }),
       },
       detail: {
-        tags: ["Notifications"],
+        tags: ["User"],
         summary: "Update FCM Push Token",
       },
     },
   )
-
   .use(blockMiddleware)
   .get(
     "/users",
     async ({ query, set }) => {
-      let parsedRadius: number[];
-      let parsedAge: number[];
+      let parsedRadius: number[] = [];
+      let parsedAge: number[] = [];
 
       try {
-        parsedRadius = JSON.parse(query.radius).map(Number);
-        parsedAge = JSON.parse(query.age).map(Number);
+        const radiusArr = JSON.parse(query.radius);
+        const ageArr = JSON.parse(query.age);
+
+        if (!Array.isArray(radiusArr) || !Array.isArray(ageArr)) {
+          throw new Error();
+        }
+
+        parsedRadius = radiusArr.map(Number);
+        parsedAge = ageArr.map(Number);
       } catch {
         set.status = 400;
         return {
@@ -319,21 +329,30 @@ export const userRoutes = new Elysia({ name: "routes.user" })
         };
       }
 
-      // if (
-      //   parsedRadius[0] < -90 ||
-      //   parsedRadius[0] > 90 ||
-      //   parsedRadius[1] < -180 ||
-      //   parsedRadius[1] > 180
-      // ) {
-      //   set.status = 422;
-      //   return {
-      //     status: "unprocessable entity",
-      //     message: "Invalid coordinate range",
-      //   };
-      // }
-      if (parsedRadius.some(isNaN) || parsedAge.some(isNaN)) {
+      if (
+        parsedRadius.length < 2 ||
+        parsedAge.length < 2 ||
+        parsedRadius.some(isNaN) ||
+        parsedAge.some(isNaN)
+      ) {
         set.status = 400;
-        return { status: "fail", message: "Invalid number format" };
+        return {
+          status: "fail",
+          message: "Invalid number format or missing array items",
+        };
+      }
+
+      if (
+        parsedRadius[0] < -90 ||
+        parsedRadius[0] > 90 ||
+        parsedRadius[1] < -180 ||
+        parsedRadius[1] > 180
+      ) {
+        set.status = 422;
+        return {
+          status: "unprocessable entity",
+          message: "Invalid coordinate range",
+        };
       }
 
       if (parsedAge[0] < 1 || parsedAge[1] > 199) {
@@ -341,43 +360,43 @@ export const userRoutes = new Elysia({ name: "routes.user" })
         return { status: "Invalid", message: "Invalid age range" };
       }
 
-      let parsedGender: string[] | undefined;
-      if (query.gender) {
-        try {
-          const parsed = JSON.parse(query.gender);
-          parsedGender = Array.isArray(parsed) ? parsed : [query.gender];
-        } catch {
-          parsedGender = [query.gender];
-        }
-      }
-
       const users = await userService.getFilteredUsersList(
         query.userId,
         {
           currentUserId: query.userId,
           blockedUserIds: [],
-
           activity: query.activity as "justJoined" | undefined,
           country: query.country?.toUpperCase(),
-          smoking: parseMultiSelect(query.smoking),
-          drinking: parseMultiSelect(query.drinking),
-          hasBio: query.hasBio === "true",
-          opennessToLongDistance: parseMultiSelect(
+          smoking: parseBooleanFilter(query.smoking),
+          drinking: parseBooleanFilter(query.drinking),
+          hasBio: parseBooleanFilter(query.hasBio),
+          opennessToLongDistance: parseBooleanFilter(
             query.opennessToLongDistance,
           ),
-          willingToRelocate: parseMultiSelect(query.willingToRelocate),
+          willingToRelocate: parseBooleanFilter(query.willingToRelocate),
+
+          // Core demographics
           gender: parseMultiSelect(query.gender),
           ethnicity: parseMultiSelect(query.ethnicity),
           zodiac: parseMultiSelect(query.zodiac),
+          height: parseMultiSelect(query.height),
+
+          // Lifestyle & Personality
           familyPlans: parseMultiSelect(query.familyPlans),
           educationLevel: parseMultiSelect(query.educationLevel),
-          height: parseMultiSelect(query.height),
           lookingFor: parseMultiSelect(query.lookingFor),
           workoutFrequency: parseMultiSelect(query.workoutFrequency),
           personality: parseMultiSelect(query.personality),
           language: parseMultiSelect(query.language),
           bodyType: parseMultiSelect(query.bodyType),
           loveLanguage: parseMultiSelect(query.loveLanguage),
+          religion: parseMultiSelect(query.religion),
+          pets: parseMultiSelect(query.pets),
+          sexuality: parseMultiSelect(query.sexuality),
+          dietaryPreference: parseMultiSelect(query.dietaryPreference),
+          sleepingHabits: parseMultiSelect(query.sleepingHabits),
+          travelPlans: parseMultiSelect(query.travelPlans),
+          relationshipStatus: parseMultiSelect(query.relationshipStatus),
         },
         parsedRadius,
         parsedAge,
@@ -412,6 +431,15 @@ export const userRoutes = new Elysia({ name: "routes.user" })
           loveLanguage: t.Optional(t.String()),
           opennessToLongDistance: t.Optional(t.String()),
           willingToRelocate: t.Optional(t.String()),
+
+          // Added Missing Query Params
+          religion: t.Optional(t.String()),
+          pets: t.Optional(t.String()),
+          sexuality: t.Optional(t.String()),
+          dietaryPreference: t.Optional(t.String()),
+          sleepingHabits: t.Optional(t.String()),
+          travelPlans: t.Optional(t.String()),
+          relationshipStatus: t.Optional(t.String()),
         },
         {
           examples: {
@@ -423,8 +451,8 @@ export const userRoutes = new Elysia({ name: "routes.user" })
             gender: '["male","female"]',
             ethnicity: '["black","white","asian"]',
             zodiac: '["leo","aries","scorpio"]',
-            smoking: '"never"',
-            drinking: '["socially","never"]',
+            smoking: "false",
+            drinking: "true",
             hasBio: "true",
             minPhotos: "2",
             familyPlans: '["wantKids","openToKids"]',
@@ -436,8 +464,12 @@ export const userRoutes = new Elysia({ name: "routes.user" })
             language: '["english","spanish"]',
             bodyType: '["athletic","average"]',
             loveLanguage: '["qualityTime","actsOfService"]',
-            opennessToLongDistance: '["yes","maybe"]',
-            willingToRelocate: '["yes","maybe"]',
+            opennessToLongDistance: "true",
+            willingToRelocate: "false",
+            religion: '["christian","spiritual"]',
+            pets: '["dog","cat"]',
+            dietaryPreference: '["vegan","vegetarian"]',
+            sleepingHabits: '["earlyBird","nightOwl"]',
           },
         },
       ),
@@ -449,20 +481,10 @@ export const userRoutes = new Elysia({ name: "routes.user" })
         422: FailResponse,
       },
       detail: {
-        tags: ["Discovery"],
+        tags: ["User"],
         summary: "Get Users (Advanced Matchmaking)",
         description:
           "Advanced user search with location-based matching and multiple preference filters. Automatically excludes blocked users, existing likes, and existing dislikes.",
       },
     },
   );
-
-const parseMultiSelect = (val?: string): string[] | undefined => {
-  if (!val) return undefined;
-  try {
-    const parsed = JSON.parse(decodeURIComponent(val));
-    return Array.isArray(parsed) ? parsed : [parsed];
-  } catch {
-    return [val];
-  }
-};
