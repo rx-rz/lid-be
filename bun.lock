@@ -6,6 +6,8 @@
       "name": "love-in-diaspora-be",
       "dependencies": {
         "@elysiajs/openapi": "^1.4.14",
+        "@faker-js/faker": "^10.3.0",
+        "@fakerjs/faker": "^3.0.0",
         "@stream-io/node-sdk": "^0.7.42",
         "@upstash/redis": "^1.36.2",
         "ably": "^2.18.0",
@@ -105,6 +107,60 @@
     "@esbuild/win32-ia32": ["@esbuild/win32-ia32@0.25.12", "", { "os": "win32", "cpu": "ia32" }, "sha512-HkqnmmBoCbCwxUKKNPBixiWDGCpQGVsrQfJoVGYLPT41XWF8lHuE5N6WhVia2n4o5QK5M4tYr21827fNhi4byQ=="],
 
     "@esbuild/win32-x64": ["@esbuild/win32-x64@0.25.12", "", { "os": "win32", "cpu": "x64" }, "sha512-alJC0uCZpTFrSL0CCDjcgleBXPnCrEAhTBILpeAp7M/OFgoqtAetfBzX0xM00MUsVVPpVjlPuMbREqnZCXaTnA=="],
+
+    "@faker-js/faker": ["@faker-js/faker@10.3.0", "", {}, "sha512-It0Sne6P3szg7JIi6CgKbvTZoMjxBZhcv91ZrqrNuaZQfB5WoqYYbzCUOq89YR+VY8juY9M1vDWmDDa2TzfXCw=="],
+
+    "@fakerjs/age": ["@fakerjs/age@2.1.1", "", {}, "sha512-9MQcaL86EbO43d3EjoSPJ4+Yu37zEex0hH+u33zNjm7dIIrr3mEzeFBUvAow9I0sR4oK7QbM1j2Sju+PvJGpDA=="],
+
+    "@fakerjs/animal": ["@fakerjs/animal@2.2.0", "", { "dependencies": { "load-json-file": "^7.0.1" } }, "sha512-EEFtmbcodyuGd2Sw5bfG513kPtEc1EU7+q14rtoJXQ6oJx1W4trRMDilQeNGeVxwHl90K9m5uTETLxxA1Xinhg=="],
+
+    "@fakerjs/blood": ["@fakerjs/blood@1.0.0", "", {}, "sha512-VP790P5exHez0Yb3UcZ/rraW4bnPe818cZKHI9fe7taCCkFyloWLYS8Zy5+LUtSLK0mQZaJ3MzcF4LZhiBTXzQ=="],
+
+    "@fakerjs/boolean": ["@fakerjs/boolean@2.1.1", "", {}, "sha512-OJWuAFs3QEZangHn8tvckr2E+sevjOVwzAfsuWDwDL+ymPNCMjvISvBDW6d7k3I3wgZhjaBLngdZfEl+bhisTQ=="],
+
+    "@fakerjs/browser": ["@fakerjs/browser@1.1.1", "", { "dependencies": { "load-json-file": "^7.0.1" } }, "sha512-d/nzWRlRGox7pen+3JrU9D3hhXQ6s20RJ0I5i2Q1UiKaLNyq8hW+26Ulr2YXPA9baLqFsrSkMnEoUODTF7jdrQ=="],
+
+    "@fakerjs/domain": ["@fakerjs/domain@1.1.0", "", { "dependencies": { "@fakerjs/tld": "^1", "@fakerjs/word": "^1" } }, "sha512-odr4j98GIpyuPYrP8nV8Q7tcSB9VYu3a0Q9Kgx112oTauS7L3TsDbmi8+x2prT6fjHAfZ/eZ5zpDEtjsPVAJsg=="],
+
+    "@fakerjs/email": ["@fakerjs/email@1.0.0", "", { "dependencies": { "@fakerjs/domain": "^1", "@fakerjs/word": "^1" } }, "sha512-metzbdFNwkZsR5Se7OIPkpMGbkTHdCejB0Tg/Q+M0hYyQnYMyaVdZf53/hb7TMKbNM8HewTERQFPDePiABEKQg=="],
+
+    "@fakerjs/faker": ["@fakerjs/faker@3.0.0", "", { "dependencies": { "@fakerjs/age": "^2", "@fakerjs/animal": "^2", "@fakerjs/blood": "^1", "@fakerjs/boolean": "^2", "@fakerjs/browser": "^1", "@fakerjs/domain": "^1", "@fakerjs/email": "^1", "@fakerjs/firstname": "^1", "@fakerjs/float": "^2", "@fakerjs/game": "^1", "@fakerjs/gender": "^2", "@fakerjs/house": "^1", "@fakerjs/integer": "^2", "@fakerjs/ip": "^2", "@fakerjs/lastname": "^1", "@fakerjs/letter": "^2", "@fakerjs/paragraph": "^1", "@fakerjs/profession": "^2", "@fakerjs/sentence": "^1", "@fakerjs/sport": "^1", "@fakerjs/string": "^2", "@fakerjs/superhero": "^1", "@fakerjs/tld": "^1", "@fakerjs/url": "^1", "@fakerjs/word": "^1" } }, "sha512-sN4LBgZQGEsZw+bzmXf9VwzpfJ1B/ZhqU19NSHku8ywih2g+Kq7uBa7nlmYUUmSlYe6p5cx5eRusswrfm+6Wbw=="],
+
+    "@fakerjs/firstname": ["@fakerjs/firstname@1.0.1", "", { "dependencies": { "load-json-file": "^7.0.1" } }, "sha512-Z+Ss9jUOm1SJulf/P0jxdE1OosBxbUkN18wDdPdNUl/bdpEsxbya1jsFvQk8vjP8fHwOe5RnEiVwRr03Kp5CPg=="],
+
+    "@fakerjs/float": ["@fakerjs/float@2.1.1", "", {}, "sha512-VUX+xCzS0PW2OLtgqVxnU4qqZ3tvzyOFLKRmZlptCAmpTg3jKUbqdt8agHPL8KUjQaXr4UxHdegYNg2R2z2hAw=="],
+
+    "@fakerjs/game": ["@fakerjs/game@1.0.1", "", { "dependencies": { "load-json-file": "^7.0.1" } }, "sha512-w+Htk1jqUrb0GKyjjqLhUCzbu9OtGcpSujlsb3Baj3S5v39ikv3nR2iFL/Bhgs9nrql0ynlYYN/V2oifURAQfw=="],
+
+    "@fakerjs/gender": ["@fakerjs/gender@2.3.1", "", { "dependencies": { "load-json-file": "^7.0.1" } }, "sha512-qerBcx9mTPLZFnmJJBnEYlc0BkCdaUfVWWGsLKC7U0Vloai9reS4ArZTFz+Cm0eHNVX1b9RdBIPh9aHIeR2LcQ=="],
+
+    "@fakerjs/house": ["@fakerjs/house@1.0.2", "", { "dependencies": { "load-json-file": "^7.0.1" } }, "sha512-DsgcRinbadBQKcXRHQX9lU8xMAdK2nPT/EZwTMA1y56a52XworVOaCecdkGcubzLxdAuMBPLeOMvJxXLswWL/w=="],
+
+    "@fakerjs/integer": ["@fakerjs/integer@2.1.1", "", {}, "sha512-yAqbw7SpN1p6XX5JsgIN6xrpGG6Qdl14/9x5RMUG5TL+/LVySg2TberY0rWRyYsRVpOMOJ8hhMaaBAARtxdMwA=="],
+
+    "@fakerjs/ip": ["@fakerjs/ip@2.1.1", "", {}, "sha512-oY8+k4c04YF4eLU8brNVUAr5jvmXuzKKCn+qCseDQMK8abDarAJ/c0ig1XpZRBfywUjKxQNGZrfAEvfYiFFdeQ=="],
+
+    "@fakerjs/lastname": ["@fakerjs/lastname@1.0.1", "", { "dependencies": { "load-json-file": "^7.0.1" } }, "sha512-7BJp9D5F4ESBf7MHN4Z8I96Ie78n9qftAwL0591xkHCoIpVpGVq/56ggCaowcxGGvxNYJ3t2OF4P7VLNQtNoDA=="],
+
+    "@fakerjs/letter": ["@fakerjs/letter@2.2.2", "", { "dependencies": { "load-json-file": "^7.0.1" } }, "sha512-JuIqMpefN4JYzinI8Cm+K477xogilhOdLIDtOZ8EwgMSQCcvkB+mBYarNRwwC3FIFjtXGVvMNBe398cB4IEvjg=="],
+
+    "@fakerjs/paragraph": ["@fakerjs/paragraph@1.0.0", "", { "dependencies": { "@fakerjs/sentence": "^1" } }, "sha512-usbAIhWVtSf2eHbY5YEXRnEj4otLLKLvOwAoCQ+cxtMd3FGYLxBLNGVwjDXoSl8FOdTbA57Yt1tsu+v21xsoUw=="],
+
+    "@fakerjs/profession": ["@fakerjs/profession@2.2.0", "", { "dependencies": { "load-json-file": "^7.0.1" } }, "sha512-yktaNnN8nmr+5wn8m6hE/bhaiYtbBQ5CqttIws+q7SwBx4Ip5/uEttP9UBTZCfACu07gB0RYvb7xDxtFT+dFkw=="],
+
+    "@fakerjs/sentence": ["@fakerjs/sentence@1.0.0", "", { "dependencies": { "@fakerjs/word": "^1" } }, "sha512-DRpKfj/dbdMYtW5+k0/wB6oqd0tnOzLCVyKFM50hVF43gXShj4arg23ql2CXxNakagi3yNzBk9W5Am6Y12H6CA=="],
+
+    "@fakerjs/sport": ["@fakerjs/sport@1.0.0", "", { "dependencies": { "load-json-file": "^7.0.1" } }, "sha512-ShkZ6QSzwQP+NRKwkaL3MUG63NTcjzk5ppen3DoOV0GGwDnOTS2OFN5AvtmqjgJD4bAhekPYkHSGN/Pbgk3dSw=="],
+
+    "@fakerjs/string": ["@fakerjs/string@2.1.1", "", {}, "sha512-6EfjvoRh+b91MjP/ciOmLJmwtEAvjAqATgaZM1khwEO0azRtnmdXHuxTVl1o+Uvq4kP2zjXvuXqkIZdprNyPyg=="],
+
+    "@fakerjs/superhero": ["@fakerjs/superhero@1.2.0", "", { "dependencies": { "load-json-file": "^7.0.1" } }, "sha512-xxKscBJSvSX90Krq2bk2O2V438byQL2hdxzRAGkJ50G/gUUap2NOvOERlunlJ8GadQrlnvEeU4UEk6/Gm3FSwQ=="],
+
+    "@fakerjs/tld": ["@fakerjs/tld@1.1.0", "", { "dependencies": { "load-json-file": "^7.0.1" } }, "sha512-qsJUB6wm3+KpT+ZKhlRDB7GKh89Nt702ezEnbREtn+nSME6P4aJLygd3GnRtriVYmjokz8RSW/pABS+ft8BeZw=="],
+
+    "@fakerjs/url": ["@fakerjs/url@1.0.0", "", { "dependencies": { "@fakerjs/domain": "^1" } }, "sha512-Enf9RMHRnRYcFA3dciYVBwHXpJFvMRmyoQVp2vjvyAhkNZ5rl8L5XaGOP3/c8//vry/MuhA+eIqtrs7U4ElLjQ=="],
+
+    "@fakerjs/word": ["@fakerjs/word@1.0.1", "", {}, "sha512-ilyTmSakl4K/osCEE5kUdyAFXxZnmh3WLXlQHKU4ytbkHLHh67f+h25JVrrD+N3Dv7D/7gQlfj/YBH+QuERJlw=="],
 
     "@fastify/busboy": ["@fastify/busboy@3.2.0", "", {}, "sha512-m9FVDXU3GT2ITSe0UaMA5rU3QkfC/UXtCU8y0gSN/GugTqtVldOBWIB5V6V3sbmenVZUIpU6f+mPEO2+m5iTaA=="],
 
@@ -473,6 +529,8 @@
     "keyv": ["keyv@4.5.4", "", { "dependencies": { "json-buffer": "3.0.1" } }, "sha512-oxVHkHR/EJf2CNXnWxRLW6mg7JyCCUcG0DtEGmL2ctUo1PNTin1PUil+r/+4r5MpVgC/fn1kjsx7mjSujKqIpw=="],
 
     "limiter": ["limiter@1.1.5", "", {}, "sha512-FWWMIEOxz3GwUI4Ts/IvgVy6LPvoMPgjMdQ185nN6psJyBJ4yOpzqm695/h5umdLJg2vW3GR5iG11MAkR2AzJA=="],
+
+    "load-json-file": ["load-json-file@7.0.1", "", {}, "sha512-Gnxj3ev3mB5TkVBGad0JM6dmLiQL+o0t23JPBZ9sd+yvSLk05mFoqKBw5N8gbbkU4TNXyqCgIrl/VM17OgUIgQ=="],
 
     "lodash": ["lodash@4.17.23", "", {}, "sha512-LgVTMpQtIopCi79SJeDiP0TfWi5CNEc/L/aRdTh3yIvmZXTnheWpKjSZhnvMl8iXbC1tFg9gdHHDMLoV7CnG+w=="],
 

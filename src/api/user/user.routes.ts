@@ -1,5 +1,4 @@
 import { Elysia, t } from "elysia";
-import { rateLimit } from "elysia-rate-limit";
 import { clerkPlugin } from "elysia-clerk";
 
 import { userRepo } from "../../repo/user.repo";
@@ -19,7 +18,14 @@ const UserSchema = t.Object({
   verified: t.Union([t.Boolean(), t.Null()]),
   showGender: t.Union([t.Boolean(), t.Null()]),
   lastLogin: t.Union([t.String(), t.Date(), t.Null()]),
-  subscriptionType: t.Union([t.String(), t.Null()]),
+  subscriptionType: t.Optional(
+    t.Union([
+      t.Literal("economy"),
+      t.Literal("premium-economy"),
+      t.Literal("first-class"),
+      t.Literal("weekender"),
+    ]),
+  ),
   phone: t.Union([t.String(), t.Null()]),
   createdAt: t.Union([t.String(), t.Date(), t.Null()]),
   updatedAt: t.Union([t.String(), t.Date(), t.Null()]),
@@ -121,7 +127,12 @@ export const userRoutes = new Elysia({ name: "routes.user" })
         lastLogin: t.Optional(t.String()),
         displayName: t.Optional(t.String()),
         subscriptionType: t.Optional(
-          t.Union([t.Literal("free"), t.Literal("premium"), t.Literal("gold")]),
+          t.Union([
+            t.Literal("economy"),
+            t.Literal("premium-economy"),
+            t.Literal("first-class"),
+            t.Literal("weekender"),
+          ]),
         ),
         phone: t.Optional(t.String()),
         onboardingPage: t.Optional(
@@ -205,7 +216,7 @@ export const userRoutes = new Elysia({ name: "routes.user" })
           mutualLikes: t.Array(
             t.Object({
               userId: t.String(),
-              likedAt: t.Union([t.Date(), t.String()]),
+              likedAt: t.Union([t.Date(), t.String(), t.Null()]),
               superLike: t.Boolean(),
               user: t.Object({
                 id: t.String(),
@@ -234,7 +245,7 @@ export const userRoutes = new Elysia({ name: "routes.user" })
         set.status = 404;
         return { error: "User not found" };
       }
-      return data;
+      return data as any;
     },
     {
       params: t.Object({ userId: t.String() }),
@@ -245,15 +256,7 @@ export const userRoutes = new Elysia({ name: "routes.user" })
           email: t.Union([t.String(), t.Null()]),
           subscription: t.Union([t.String(), t.Null()]),
           image: t.Union([t.String(), t.Null()]),
-          whyHere: t.Optional(
-            t.Nullable(
-              t.Union([
-                t.Literal("man"),
-                t.Literal("woman"),
-                t.Literal("nonbinary"),
-              ]),
-            ),
-          ),
+          whyHere: t.Union([t.String(), t.Null()]),
           location: t.Optional(
             t.Nullable(
               t.Object({
@@ -287,7 +290,7 @@ export const userRoutes = new Elysia({ name: "routes.user" })
   .put(
     "/fcm-token",
     async ({ body }) => {
-      await userRepo.updateFcmToken(body.userId, body.fcmToken);
+      await userRepo.updateUser(body.userId, { fcmToken: body.fcmToken });
       return { message: "Token updated successfully" };
     },
     {
@@ -360,11 +363,13 @@ export const userRoutes = new Elysia({ name: "routes.user" })
         return { status: "Invalid", message: "Invalid age range" };
       }
 
-      const users = await userService.getFilteredUsersList(
+      const payload = await userService.getFilteredUsersList(
         query.userId,
         {
           currentUserId: query.userId,
-          blockedUserIds: [],
+          blockedUserIds: [], // Resolved in blockMiddleware previously
+          cursor: query.cursor,
+          limit: query.limit ? Number(query.limit) : undefined,
           activity: query.activity as "justJoined" | undefined,
           country: query.country?.toUpperCase(),
           smoking: parseBooleanFilter(query.smoking),
@@ -375,13 +380,11 @@ export const userRoutes = new Elysia({ name: "routes.user" })
           ),
           willingToRelocate: parseBooleanFilter(query.willingToRelocate),
 
-          // Core demographics
           gender: parseMultiSelect(query.gender),
           ethnicity: parseMultiSelect(query.ethnicity),
           zodiac: parseMultiSelect(query.zodiac),
           height: parseMultiSelect(query.height),
 
-          // Lifestyle & Personality
           familyPlans: parseMultiSelect(query.familyPlans),
           educationLevel: parseMultiSelect(query.educationLevel),
           lookingFor: parseMultiSelect(query.lookingFor),
@@ -403,7 +406,7 @@ export const userRoutes = new Elysia({ name: "routes.user" })
         query.minPhotos ? Number(query.minPhotos) : undefined,
       );
 
-      return { users };
+      return payload;
     },
     {
       query: t.Object(
@@ -411,6 +414,10 @@ export const userRoutes = new Elysia({ name: "routes.user" })
           userId: t.String(),
           radius: t.String(),
           age: t.String(),
+
+          cursor: t.Optional(t.String()),
+          limit: t.Optional(t.String()),
+
           gender: t.Optional(t.String()),
           activity: t.Optional(t.Literal("justJoined")),
           country: t.Optional(t.String()),
@@ -431,8 +438,6 @@ export const userRoutes = new Elysia({ name: "routes.user" })
           loveLanguage: t.Optional(t.String()),
           opennessToLongDistance: t.Optional(t.String()),
           willingToRelocate: t.Optional(t.String()),
-
-          // Added Missing Query Params
           religion: t.Optional(t.String()),
           pets: t.Optional(t.String()),
           sexuality: t.Optional(t.String()),
@@ -446,6 +451,9 @@ export const userRoutes = new Elysia({ name: "routes.user" })
             userId: "user_123",
             radius: '["50", "100"]',
             age: '["25", "35"]',
+            cursor:
+              "eyJjcmVhdGVkQXQiOiIyMDI0LTAzLTE3VDEyOjAwOjAwLjAwMFoiLCJpZCI6InVzZXJfNDU2In0=",
+            limit: "20",
             activity: "justJoined",
             country: "US",
             gender: '["male","female"]',
@@ -475,7 +483,8 @@ export const userRoutes = new Elysia({ name: "routes.user" })
       ),
       response: {
         200: t.Object({
-          users: t.Array(t.Any()),
+          users: t.Array(t.Any()), 
+          nextCursor: t.Union([t.String(), t.Null()]),
         }),
         400: FailResponse,
         422: FailResponse,

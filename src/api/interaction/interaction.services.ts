@@ -4,14 +4,19 @@ import { userRepo } from "../../repo/user.repo";
 import { fcmAdmin } from "../../services/fcm";
 import { logger } from "../../utils/logger";
 import { getAge } from "../user/user.services";
-
+import type { SubscriptionTier } from "../../db/schema"; // NEW
+import { TIER_PERMISSIONS } from "../../utils/permissions";
+import { premiumFeatureRepo } from "../../repo/premium.repo";
 
 const enforceSwipeLimit = async (
   userId: string,
   subscriptionType: string | null,
 ) => {
-  if (subscriptionType === "free" || subscriptionType === null) {
-    await interactionRepo.checkAndIncrementSwipeLimit(userId);
+  const tier = (subscriptionType as SubscriptionTier) || "economy";
+  const limit = TIER_PERMISSIONS[tier].dailySwipes;
+
+  if (limit !== "unlimited") {
+    await interactionRepo.checkAndIncrementSwipeLimit(userId, limit);
   }
 };
 
@@ -20,7 +25,6 @@ const formatUserWithAge = ({ user, ...rest }: any) => {
     return { ...rest, user: null };
   }
   const { birthday, ...userRest } = user;
-  console.log({user, b: getAge(user.birthday)})
   return {
     ...rest,
     user: {
@@ -38,8 +42,8 @@ export const interactionService = {
   ) => {
     if (likerId === likedId) throw new Error("You cannot like yourself");
 
-    const likerExists = await userRepo.getUserWithFcmToken(likerId);
-    const likedExists = await userRepo.getUserWithFcmToken(likedId);
+    const likerExists = await userRepo.getUserById(likerId);
+    const likedExists = await userRepo.getUserById(likedId);
 
     if (!likerExists || !likedExists) {
       throw new Error("One or both users do not exist");
@@ -53,6 +57,14 @@ export const interactionService = {
       throw new Error("Like already exists");
     }
 
+    // NEW: Handle Super Like deduction before creating the like
+    if (superLike) {
+      const updatedWallet = await premiumFeatureRepo.useSuperLike(likerId);
+      if (!updatedWallet) {
+        throw new Error("INSUFFICIENT_SUPERLIKES");
+      }
+    }
+
     await enforceSwipeLimit(likerId, likerExists.subscription);
 
     const like = await interactionRepo.createLike(likerId, likedId, superLike);
@@ -63,7 +75,9 @@ export const interactionService = {
       try {
         await fcmAdmin.messaging().send({
           notification: {
-            title: `New Like 💖 from ${likerExists.displayName}`,
+            title: superLike
+              ? `🌟 Super Like from ${likerExists.displayName}!`
+              : `New Like 💖 from ${likerExists.displayName}`,
             body: `${likerExists.displayName} just liked you! Open the app to check.`,
           },
           token: targetFcmToken,
@@ -102,7 +116,7 @@ export const interactionService = {
     if (dislikerId === dislikedId)
       throw new Error("You cannot dislike yourself");
 
-    const dislikerExists = await userRepo.getUserWithFcmToken(dislikerId);
+    const dislikerExists = await userRepo.getUserById(dislikerId);
     const dislikedExists = await userRepo.checkUserExists(dislikedId);
 
     if (!dislikerExists || !dislikedExists) {
@@ -145,7 +159,38 @@ export const interactionService = {
 
   getMutualLikes: async (userId: string) => {
     const mutualLikes = await interactionRepo.getMutualLikes(userId);
-    console.log({a: mutualLikes[0].user})
     return mutualLikes.map(formatUserWithAge);
+  },
+  // Add this inside interactionService
+  rewindDislike: async (dislikerId: string, dislikedId: string) => {
+    // 1. Verify the dislike actually exists
+    const existingDislike = await interactionRepo.getExistingDislike(
+      dislikerId,
+      dislikedId,
+    );
+
+    if (!existingDislike) {
+      throw new Error("Dislike not found or already rewound");
+    }
+
+    // 2. Attempt to deduct a Recall from the wallet
+    // If they have 0, the repo returns undefined and we throw the payment error
+    const updatedWallet = await premiumFeatureRepo.useRecall(dislikerId);
+    if (!updatedWallet) {
+      throw new Error("INSUFFICIENT_RECALLS");
+    }
+
+    // 3. Delete the dislike to return the user to the matching pool
+    await interactionRepo.deleteDislike(dislikerId, dislikedId);
+
+    logger.info(
+      `[Interaction] User ${dislikerId} rewound dislike for ${dislikedId}. ${updatedWallet.recallsRemaining} recalls left.`,
+    );
+
+    return {
+      success: true,
+      message: "Successfully rewound dislike",
+      recallsRemaining: updatedWallet.recallsRemaining,
+    };
   },
 };

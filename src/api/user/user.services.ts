@@ -1,23 +1,25 @@
 import { clerkClient } from "elysia-clerk";
+import { InternalServerError, NotFoundError } from "elysia";
+
 import { InsertUser } from "../../db/schema";
+import { db } from "../../db/db";
+import { userRepo, FilteredUser } from "../../repo/user.repo";
 import { locationRepo } from "../../repo/location.repo";
+import { preferenceRepo } from "../../repo/preference.repo";
+import { blockService } from "../block/block.services";
+import { premiumService } from "../premium/premium.services";
+
 import {
-  cacheResults,
-  createQueryHash,
-  getCachedResults,
+  getCountryDetailsFromAbbr,
   getCountryFromCoordinates,
   getTravelTime,
 } from "../../utils/location";
-import { blockService } from "../block/block.services";
-import { premiumService } from "../premium/premium.services";
-import { preferenceRepo } from "../../repo/preference.repo";
-import { db } from "../../db/db";
-import { InternalServerError, NotFoundError } from "elysia";
-import { userRepo } from "../../repo/user.repo";
 
 export type GetUsersFilters = {
   currentUserId: string;
   blockedUserIds?: string[];
+  cursor?: string | null;
+  limit?: number;
   gender?: string[];
   activity?: "justJoined";
   country?: string;
@@ -46,6 +48,15 @@ export type GetUsersFilters = {
   relationshipStatus?: string[];
 };
 
+export type ProcessedUser = FilteredUser & {
+  distanceKm: string | number;
+  travelTimeMinutes: number;
+  country: { name: string; abrv: string; flag: string } | null;
+  baseVisibilityScore: number;
+  advancedScore: number;
+  totalScore: number;
+};
+
 export const getAge = (birthdayString: string | null | Date): number | null => {
   if (!birthdayString) return null;
   const today = new Date();
@@ -66,7 +77,7 @@ export const getAge = (birthdayString: string | null | Date): number | null => {
 };
 
 const calculateAdvancedFilterScore = (
-  user: Record<string, any>,
+  user: FilteredUser,
   filters: GetUsersFilters,
 ): number => {
   let score = 0;
@@ -87,12 +98,20 @@ const calculateAdvancedFilterScore = (
   const matchBool = (filterVal?: boolean, prefVal?: boolean | null) =>
     filterVal !== undefined && filterVal === prefVal ? 1 : 0;
 
-  score += matchExact(filters.ethnicity, p.ethnicity);
+  const matchArray = (filterArr?: string[], prefArr?: string[] | null) =>
+    filterArr?.length &&
+    prefArr?.length &&
+    filterArr.some((f) => prefArr.includes(f))
+      ? 1
+      : 0;
+
+  score += matchArray(filters.ethnicity, p.ethnicity ?? undefined);
+  score += matchArray(filters.language, p.language ?? undefined);
+
   score += matchExact(filters.zodiac, p.zodiac);
   score += matchExact(filters.familyPlans, p.familyPlans);
   score += matchExact(filters.workoutFrequency, p.workoutFrequency);
   score += matchExact(filters.personality, p.personality);
-  score += matchExact(filters.language, p.language);
   score += matchExact(filters.bodyType, p.bodyType);
   score += matchExact(filters.loveLanguage, p.loveLanguage);
   score += matchExact(filters.religion, p.religion);
@@ -118,9 +137,9 @@ const calculateAdvancedFilterScore = (
   return score;
 };
 
-const calculateVisibilityScore = (user: Record<string, any>): number => {
+const calculateVisibilityScore = (user: FilteredUser): number => {
   let score = 1;
-  if (user.onlineStatus === "online") score += 2;
+  if (user.onlineStatus) score += 2;
   if (Array.isArray(user.images) && user.images.length > 0) score += 1;
   if (typeof user.profile?.bio === "string" && user.profile.bio.length > 20) {
     score += 0.5;
@@ -186,102 +205,131 @@ export const userService = {
     ageRange: number[],
     minPhotos?: number,
   ) => {
-    const queryHash = createQueryHash({
-      ...filters,
-      radius,
-      ageRange,
-      minPhotos,
-    });
-
-    const cachedResults = await getCachedResults(currentUserId, queryHash);
-    if (cachedResults) return cachedResults;
-
     const currentLocation = await userRepo.getUserLocation(currentUserId);
     if (!currentLocation?.latitude || !currentLocation?.longitude) {
       throw new Error("Current user location not found");
     }
 
     const origin = {
-      lat: parseFloat(currentLocation.latitude as string),
-      lng: parseFloat(currentLocation.longitude as string),
+      lat: parseFloat(currentLocation.latitude),
+      lng: parseFloat(currentLocation.longitude),
     };
 
     const blockedUserIds = await blockService.getBlockedIds(currentUserId);
-    const originCountry = getCountryFromCoordinates(origin.lat, origin.lng);
 
-    const users = await userRepo.findUsersWithFilters({
+    let originCountry = null;
+    if (currentLocation.countryAbbreviation) {
+      originCountry = getCountryDetailsFromAbbr(
+        currentLocation.countryAbbreviation,
+      );
+    } else {
+      originCountry = getCountryFromCoordinates(origin.lat, origin.lng);
+    }
+
+    const fetchedData = await userRepo.findUsersWithFilters({
       ...filters,
       currentUserId,
       blockedUserIds,
     });
 
+    const rawUsers: FilteredUser[] = Array.isArray(fetchedData)
+      ? fetchedData
+      : fetchedData.users;
+    const nextCursor = Array.isArray(fetchedData)
+      ? null
+      : fetchedData.nextCursor;
+
+    const userIds = rawUsers.map((u) => u.id).filter(Boolean);
+    const boostMultipliersMap =
+      await premiumService.getBoostMultipliers(userIds);
+
     const usersWithDistances = await Promise.all(
-      users.map(async (user: Record<string, any>) => {
-        if (!user.latitude || !user.longitude || !user.birthday) return null;
+      rawUsers.map(
+        async (user: FilteredUser): Promise<ProcessedUser | null> => {
+          if (!user.latitude || !user.longitude || !user.birthday) return null;
 
-        const age = getAge(user.birthday);
-        if (age === null || age < ageRange[0] || age > ageRange[1]) return null;
+          const age = getAge(user.birthday);
+          if (age === null || age < ageRange[0] || age > ageRange[1])
+            return null;
 
-        if (minPhotos && (!user.images || user.images.length < minPhotos)) {
-          return null;
-        }
+          if (minPhotos && (!user.images || user.images.length < minPhotos)) {
+            return null;
+          }
 
-        const destination = {
-          lat: parseFloat(user.latitude),
-          lng: parseFloat(user.longitude),
-        };
+          const destination = {
+            lat: parseFloat(user.latitude),
+            lng: parseFloat(user.longitude),
+          };
 
-        const country = getCountryFromCoordinates(
-          destination.lat,
-          destination.lng,
-        );
-        const sameCountry = originCountry?.abrv === country?.abrv;
+          let country = null;
+          if (user.countryAbbreviation) {
+            country = getCountryDetailsFromAbbr(user.countryAbbreviation);
+          } else {
+            country = getCountryFromCoordinates(
+              destination.lat,
+              destination.lng,
+            );
+          }
 
-        let distanceKm: number | string = radius[1];
-        let travelTimeMinutes = 0;
+          const sameCountry = originCountry?.abrv === country?.abrv;
 
-        if (sameCountry) {
-          const result = getTravelTime(
-            origin.lat,
-            origin.lng,
-            destination.lat,
-            destination.lng,
-          );
-          distanceKm = result.distanceKm;
-          travelTimeMinutes = result.travelTimeMinutes;
-        } else {
-          distanceKm = `Currently in ${country?.name.includes("United") ? "The " : ""}${country?.name} ${country?.flag}`;
-        }
+          let distanceKm: number | string = radius[1];
+          let travelTimeMinutes = 0;
 
-        const premiumBoost = await premiumService.getBoostMultiplier(user.id);
-        const baseVisibilityScore =
-          calculateVisibilityScore(user) * premiumBoost;
-        const advancedScore = calculateAdvancedFilterScore(user, filters);
+          if (sameCountry) {
+            const result = getTravelTime(
+              origin.lat,
+              origin.lng,
+              destination.lat,
+              destination.lng,
+            );
+            distanceKm = result.distanceKm;
+            travelTimeMinutes = result.travelTimeMinutes;
+          } else {
+            distanceKm = `Currently in ${country?.name.includes("United") ? "The " : ""}${country?.name} ${country?.flag}`;
+          }
 
-        return {
-          ...user,
-          distanceKm,
-          travelTimeMinutes,
-          country,
-          baseVisibilityScore,
-          advancedScore,
-          totalScore: baseVisibilityScore + advancedScore,
-          hasLikedLoggedInUser: user.hasLikedLoggedInUser,
-        };
-      }),
+          const premiumBoost = boostMultipliersMap[user.id] ?? 1;
+
+          const baseVisibilityScore =
+            calculateVisibilityScore(user) * premiumBoost;
+          const advancedScore = calculateAdvancedFilterScore(user, filters);
+
+          return {
+            ...user,
+            distanceKm,
+            travelTimeMinutes,
+            country,
+            baseVisibilityScore,
+            advancedScore,
+            totalScore: baseVisibilityScore + advancedScore,
+            superLike: user.superLike ?? false,
+            likedAt: user.likedAt ?? null,
+          };
+        },
+      ),
     );
 
     const filteredResults = usersWithDistances
-      .filter((user) => user !== null)
+      .filter((user): user is ProcessedUser => user !== null)
       .filter((user) => {
         const distance =
           typeof user.distanceKm === "number" ? user.distanceKm : radius[1];
         return distance >= radius[0] && distance <= radius[1];
       })
-      .sort((a, b) => (b.totalScore ?? 0) - (a.totalScore ?? 0));
+      .sort((a, b) => {
+        if (a.superLike && !b.superLike) return -1;
+        if (!a.superLike && b.superLike) return 1;
 
-    await cacheResults(currentUserId, queryHash, filteredResults);
+        if (a.superLike && b.superLike) {
+          const timeA = a.likedAt ? new Date(a.likedAt).getTime() : 0;
+          const timeB = b.likedAt ? new Date(b.likedAt).getTime() : 0;
+          return timeA - timeB;
+        }
 
-    return filteredResults;
+        return (b.totalScore ?? 0) - (a.totalScore ?? 0);
+      });
+
+    return { users: filteredResults, nextCursor };
   },
 };

@@ -1,12 +1,39 @@
 import { createHash } from "crypto";
 import { countryIndex } from "./country-emojis.js";
 import { redisClient } from "./redis.js";
-
 import coordinateToCountry from "coordinate_to_country";
 
 const CACHE_TTL = 86400;
 const RESULTS_CACHE_TTL = 3600;
 const COUNTRY_CACHE_TTL = 604800;
+
+// --- O(1) OPTIMIZATIONS ---
+
+// 1. Hoist Intl instantiation. Doing this in a loop crushes CPU performance.
+const regionNames = new Intl.DisplayNames(["en"], { type: "region" });
+
+// 2. Convert O(N) array search to an O(1) Hash Map
+const flagEmojiMap = Object.values(countryIndex.countryFlagEmoji).reduce(
+  (acc, curr) => {
+    acc[curr.code] = curr.emoji;
+    return acc;
+  },
+  {} as Record<string, string>
+);
+
+// 3. Fast-path lookup: Use this when you already know the abbreviation (e.g., from DB)
+export function getCountryDetailsFromAbbr(
+  countryCode: string
+): { name: string; abrv: string; flag: string } {
+  const name = regionNames.of(countryCode) ?? countryCode;
+  return {
+    name,
+    abrv: countryCode,
+    flag: flagEmojiMap[countryCode] ?? "🏳️",
+  };
+}
+
+// --------------------------
 
 export function calculateDistance(
   lat1: number,
@@ -60,29 +87,17 @@ export function getTravelTime(
     travelTimeMinutes: Math.round(timeHours * 60),
   };
 }
+
 export function getCountryFromCoordinates(
   latitude: number,
   longitude: number,
 ): { name: string; abrv: string; flag: string } | null {
-  // NOTE: Passing `true` as the third argument forces Alpha-2 codes ('NG' instead of 'NGA')
+  // We only run this heavy math if absolutely necessary
   const codes = coordinateToCountry(latitude, longitude, true);
   if (!codes?.length) return null;
 
   const countryCode = codes[0]; 
-
-  const countryData = Object.values(countryIndex.countryFlagEmoji).find(
-    (c) => c.code === countryCode,
-  );
-
-  // NOTE: This will no longer throw an error because it's receiving valid 2-letter subtags
-  const regionNames = new Intl.DisplayNames(["en"], { type: "region" });
-  const countryName = regionNames.of(countryCode) ?? countryCode;
-
-  return {
-    name: countryName,
-    abrv: countryCode, 
-    flag: countryData?.emoji ?? "🏳️",
-  };
+  return getCountryDetailsFromAbbr(countryCode);
 }
 
 export async function getCachedCountry(
@@ -98,7 +113,7 @@ export async function getCachedCountry(
 export async function setCachedCountry(
   lat: number,
   lng: number,
-data: { name: string; abrv: string; flag: string },
+  data: { name: string; abrv: string; flag: string },
 ): Promise<void> {
   const cacheKey = `country:${lat},${lng}`;
   await redisClient.setWithTtl(cacheKey, data, COUNTRY_CACHE_TTL);
@@ -128,7 +143,6 @@ export function createQueryHash(params: Record<any, any>): string {
   return createHash("sha256").update(JSON.stringify(params)).digest("hex");
 }
 
-
 export async function getCachedResults<T = any>(
   userId: string,
   queryHash: string,
@@ -140,7 +154,7 @@ export async function getCachedResults<T = any>(
 export async function cacheResults(
   userId: string,
   queryHash: string,
-  results: unknown[],
+  results: any,
 ) {
   const cacheKey = `user_results:${userId}:${queryHash}`;
   await redisClient.setWithTtl(cacheKey, results, RESULTS_CACHE_TTL);

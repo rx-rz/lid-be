@@ -1,8 +1,9 @@
 CREATE TYPE "public"."gender" AS ENUM('MAN', 'WOMAN', 'NONBINARY');--> statement-breakpoint
 CREATE TYPE "public"."onboarding_page" AS ENUM('DisplayName', 'Birthday', 'Gender', 'DatingPreference', 'Interests', 'AddPhotos');--> statement-breakpoint
+CREATE TYPE "public"."payment_status" AS ENUM('inactive', 'active', 'pending', 'past_due', 'canceled');--> statement-breakpoint
 CREATE TYPE "public"."report_status" AS ENUM('pending', 'reviewed', 'resolved', 'dismissed');--> statement-breakpoint
 CREATE TYPE "public"."subscription_type" AS ENUM('free', 'premium', 'gold');--> statement-breakpoint
-CREATE TYPE "public"."whyhere_enum" AS ENUM('man', 'woman', 'nonbinary');--> statement-breakpoint
+CREATE TYPE "public"."subscription_tier" AS ENUM('economy', 'premium-economy', 'first-class', 'weekender');--> statement-breakpoint
 CREATE TABLE "blocks" (
 	"id" text PRIMARY KEY NOT NULL,
 	"blocker_id" text NOT NULL,
@@ -90,10 +91,10 @@ CREATE TABLE "payment" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"user_id" text NOT NULL,
 	"stripe_customer_id" text NOT NULL,
-	"subscription_type" varchar(20) DEFAULT 'free',
-	"next_billing_date" timestamp with time zone,
-	"payment_status" varchar(20) DEFAULT 'active',
+	"subscription_type" "subscription_tier" DEFAULT 'economy' NOT NULL,
+	"payment_status" "payment_status" DEFAULT 'inactive' NOT NULL,
 	"last_updated" timestamp with time zone DEFAULT now(),
+	"next_billing_date" timestamp with time zone,
 	CONSTRAINT "payment_stripe_customer_id_unique" UNIQUE("stripe_customer_id")
 );
 --> statement-breakpoint
@@ -104,11 +105,10 @@ CREATE TABLE "preferences" (
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"interests" text[],
 	"looking_to_date" text[],
-	"ethnicity" varchar(50) DEFAULT '',
 	"pronouns" varchar(50) DEFAULT '',
 	"zodiac" varchar(50) DEFAULT '',
 	"bio" varchar(50) DEFAULT '',
-	"why_here" "whyhere_enum",
+	"why_here" varchar(100),
 	"smoking" boolean,
 	"drinking" boolean,
 	"religion" varchar(50) DEFAULT '',
@@ -116,7 +116,8 @@ CREATE TABLE "preferences" (
 	"pets" varchar(50) DEFAULT '',
 	"age" varchar(50) DEFAULT '',
 	"distance" varchar(50) DEFAULT '',
-	"language" varchar(50) DEFAULT '',
+	"language" varchar(50)[] DEFAULT '{}',
+	"ethnicity" varchar(50)[] DEFAULT '{}',
 	"family_plans" varchar(50) DEFAULT '',
 	"gender" varchar(50) DEFAULT '',
 	"height" varchar(50) DEFAULT '',
@@ -220,7 +221,7 @@ CREATE TABLE "users" (
 	"verified" boolean DEFAULT false,
 	"show_gender" boolean DEFAULT false,
 	"last_login" timestamp with time zone,
-	"subscription_type" "subscription_type" DEFAULT 'free',
+	"subscription_type" "subscription_tier" DEFAULT 'economy',
 	"phone" varchar(20),
 	"onboarding_page" "onboarding_page",
 	"created_at" timestamp with time zone DEFAULT now(),
@@ -271,7 +272,9 @@ ALTER TABLE "video_calls" ADD CONSTRAINT "video_calls_caller_id_users_id_fk" FOR
 ALTER TABLE "video_calls" ADD CONSTRAINT "video_calls_receiver_id_users_id_fk" FOREIGN KEY ("receiver_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 CREATE INDEX "block_relationship_idx" ON "blocks" USING btree ("blocker_id","blocked_id");--> statement-breakpoint
 CREATE INDEX "reverse_block_relationship_idx" ON "blocks" USING btree ("blocked_id","blocker_id");--> statement-breakpoint
+CREATE INDEX "liked_id_idx" ON "likes" USING btree ("liked_id","super_like");--> statement-breakpoint
 CREATE UNIQUE INDEX "unique_location_idx" ON "location" USING btree ("user_id");--> statement-breakpoint
+CREATE INDEX "country_idx" ON "location" USING btree ("country_abbreviation");--> statement-breakpoint
 CREATE UNIQUE INDEX "unique_payment_idx" ON "payment" USING btree ("user_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "unique_preferences_idx" ON "preferences" USING btree ("user_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "unique_roulette_user_idx" ON "roulette_sessions" USING btree ("user_id");--> statement-breakpoint
@@ -279,7 +282,7 @@ CREATE UNIQUE INDEX "unique_swipe_limit_idx" ON "swipe_limits" USING btree ("use
 CREATE INDEX "email_idx" ON "users" USING btree ("email");--> statement-breakpoint
 CREATE INDEX "login_idx" ON "users" USING btree ("last_login" DESC NULLS LAST);--> statement-breakpoint
 CREATE INDEX "displayName_idx" ON "users" USING btree ("display_name");--> statement-breakpoint
-CREATE INDEX "id_idx" ON "users" USING btree ("id");--> statement-breakpoint
 CREATE INDEX "active_users_idx" ON "users" USING btree ("last_login" DESC NULLS LAST,"verified");--> statement-breakpoint
 CREATE INDEX "subscription_idx" ON "users" USING btree ("subscription_type","verified");--> statement-breakpoint
-CREATE INDEX "demographic_idx" ON "users" USING btree ("gender","birthday");
+CREATE INDEX "demographic_idx" ON "users" USING btree ("gender","birthday");--> statement-breakpoint
+CREATE INDEX "cursor_pagination_idx" ON "users" USING btree ("created_at" DESC NULLS LAST,"id" DESC NULLS LAST);

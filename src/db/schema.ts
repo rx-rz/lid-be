@@ -35,11 +35,33 @@ export const subscriptionEnum = pgEnum("subscription_type", [
   "gold",
 ]);
 
-export const whyHereEnum = pgEnum("whyhere_enum", [
-  "man",
-  "woman",
-  "nonbinary",
+export const subscriptionTierEnum = pgEnum("subscription_tier", [
+  "economy",
+  "premium-economy",
+  "first-class",
+  "weekender",
 ]);
+
+export const paymentStatusEnum = pgEnum("payment_status", [
+  "inactive",
+  "active",
+  "pending",
+  "past_due",
+  "canceled",
+]);
+
+export type SubscriptionTier =
+  | "economy"
+  | "premium-economy"
+  | "first-class"
+  | "weekender";
+
+export type PaymentStatus =
+  | "inactive"
+  | "active"
+  | "pending"
+  | "past_due"
+  | "canceled";
 
 export type Gender = InferEnum<typeof genderEnum>;
 export type SubscriptionType = InferEnum<typeof subscriptionEnum>;
@@ -56,15 +78,16 @@ export const usersTable = pgTable(
   "users",
   {
     id: text("id").primaryKey(),
-    displayName: varchar("display_name", { length: 50 }),
+    displayName: varchar("display_name", { length: 300 }),
     email: text("email").unique(),
     gender: genderEnum("gender"),
     birthday: date("birthday"),
     verified: boolean("verified").default(false),
     showGender: boolean("show_gender").default(false),
     lastLogin: timestamp("last_login", { withTimezone: true }),
-    subscriptionType: subscriptionEnum("subscription_type").default("free"),
-    phone: varchar("phone", { length: 20 }),
+    subscriptionType:
+      subscriptionTierEnum("subscription_type").default("economy"),
+    phone: varchar("phone", { length: 40 }),
     onboardingPage: onboardingPageEnum("onboarding_page"),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true })
@@ -78,10 +101,13 @@ export const usersTable = pgTable(
     index("email_idx").on(table.email),
     index("login_idx").on(table.lastLogin.desc()),
     index("displayName_idx").on(table.displayName),
-    index("id_idx").on(table.id),
+    // REMOVED redundant id_idx
     index("active_users_idx").on(table.lastLogin.desc(), table.verified),
     index("subscription_idx").on(table.subscriptionType, table.verified),
     index("demographic_idx").on(table.gender, table.birthday),
+
+    // NEW: Eliminates sorting overhead for cursor pagination
+    index("cursor_pagination_idx").on(table.createdAt.desc(), table.id.desc()),
   ],
 );
 
@@ -156,45 +182,44 @@ export const preferencesTable = pgTable(
 
     interests: text("interests").array(),
     lookingToDate: text("looking_to_date").array(),
-
-    ethnicity: varchar("ethnicity", { length: 50 }).default(""),
-    pronouns: varchar("pronouns", { length: 50 }).default(""),
-    zodiac: varchar("zodiac", { length: 50 }).default(""),
-    bio: varchar("bio", { length: 50 }).default(""),
-    whyHere: whyHereEnum("why_here"),
+    pronouns: varchar("pronouns", { length: 300 }).default(""),
+    zodiac: varchar("zodiac", { length: 300 }).default(""),
+    bio: varchar("bio", { length: 300 }).default(""),
+    whyHere: varchar("why_here", { length: 200 }),
 
     smoking: boolean("smoking"),
     drinking: boolean("drinking"),
 
-    religion: varchar("religion", { length: 50 }).default(""),
-    education: varchar("education", { length: 50 }).default(""),
-    pets: varchar("pets", { length: 50 }).default(""),
-    age: varchar("age", { length: 50 }).default(""),
-    distance: varchar("distance", { length: 50 }).default(""),
-    language: varchar("language", { length: 50 }).default(""),
-    familyPlans: varchar("family_plans", { length: 50 }).default(""),
-    gender: varchar("gender", { length: 50 }).default(""),
-    height: varchar("height", { length: 50 }).default(""),
+    religion: varchar("religion", { length: 300 }).default(""),
+    education: varchar("education", { length: 300 }).default(""),
+    pets: varchar("pets", { length: 300 }).default(""),
+    age: varchar("age", { length: 300 }).default(""),
+    distance: varchar("distance", { length: 300 }).default(""),
+    language: varchar("language", { length: 300 }).array().default([]),
+    ethnicity: varchar("ethnicity", { length: 300 }).array().default([]),
+    familyPlans: varchar("family_plans", { length: 300 }).default(""),
+    gender: varchar("gender", { length: 300 }).default(""),
+    height: varchar("height", { length: 300 }).default(""),
 
     hasBio: boolean("has_bio").default(false),
     minNumberOfPhotos: varchar("min_photos").default(""),
     connections: varchar("connections").default(""),
 
-    jobTitle: varchar("job_title", { length: 100 }).default(""),
-    company: varchar("company", { length: 100 }).default(""),
-    school: varchar("school", { length: 100 }).default(""),
-    sexuality: varchar("sexuality", { length: 50 }).default(""),
-    bodyType: varchar("body_type", { length: 50 }).default(""),
-    dietaryPreference: varchar("dietary_preference", { length: 50 }).default(
+    jobTitle: varchar("job_title", { length: 200 }).default(""),
+    company: varchar("company", { length: 200 }).default(""),
+    school: varchar("school", { length: 200 }).default(""),
+    sexuality: varchar("sexuality", { length: 300 }).default(""),
+    bodyType: varchar("body_type", { length: 300 }).default(""),
+    dietaryPreference: varchar("dietary_preference", { length: 300 }).default(
       "",
     ),
-    sleepingHabits: varchar("sleeping_habits", { length: 50 }).default(""),
-    workoutFrequency: varchar("workout_frequency", { length: 50 }).default(""),
-    loveLanguage: varchar("love_language", { length: 50 }).default(""),
-    travelPlans: varchar("travel_plans", { length: 100 }).default(""),
-    personality: varchar("personality", { length: 50 }).default(""),
+    sleepingHabits: varchar("sleeping_habits", { length: 300 }).default(""),
+    workoutFrequency: varchar("workout_frequency", { length: 300 }).default(""),
+    loveLanguage: varchar("love_language", { length: 300 }).default(""),
+    travelPlans: varchar("travel_plans", { length: 200 }).default(""),
+    personality: varchar("personality", { length: 300 }).default(""),
     personalityProfile: text("personality_profile").default(""),
-    relationshipStatus: varchar("relationship_status", { length: 50 }).default(
+    relationshipStatus: varchar("relationship_status", { length: 300 }).default(
       "",
     ),
 
@@ -251,7 +276,11 @@ export const locationsTable = pgTable(
     lastUpdated: timestamp("last_updated", { withTimezone: true }).defaultNow(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
-  (table) => [uniqueIndex("unique_location_idx").on(table.userId)],
+  (table) => [
+    uniqueIndex("unique_location_idx").on(table.userId),
+    // NEW: Speeds up the country filter
+    index("country_idx").on(table.countryAbbreviation),
+  ],
 );
 
 export const locationsRelations = relations(locationsTable, ({ one }) => ({
@@ -300,7 +329,10 @@ export const likesTable = pgTable(
     likedAt: timestamp("liked_at", { withTimezone: true }).defaultNow(),
     superLike: boolean("super_like").default(false).notNull(),
   },
-  (table) => [primaryKey({ columns: [table.likerId, table.likedId] })],
+  (table) => [
+    primaryKey({ columns: [table.likerId, table.likedId] }),
+    index("liked_id_idx").on(table.likedId, table.superLike),
+  ],
 );
 
 export const likesTableRelations = relations(likesTable, ({ one }) => ({
@@ -356,7 +388,7 @@ export const matchesTable = pgTable(
       .notNull()
       .references(() => usersTable.id, { onDelete: "cascade" }),
     matchedAt: timestamp("matched_at", { withTimezone: true }).defaultNow(),
-    status: varchar("status", { length: 20 }).default("pending"),
+    status: varchar("status", { length: 40 }).default("pending"),
   },
   (table) => [unique("unique_match_idx").on(table.user1Id, table.user2Id)],
 );
@@ -511,7 +543,7 @@ export const videoCallsTable = pgTable("video_calls", {
   receiverId: text("receiver_id")
     .notNull()
     .references(() => usersTable.id, { onDelete: "cascade" }),
-  status: varchar("status", { length: 20 }).default("ongoing"),
+  status: varchar("status", { length: 40 }).default("ongoing"),
   duration: integer("duration").default(0),
 });
 
@@ -539,7 +571,7 @@ export const rouletteSessionsTable = pgTable(
     userId: text("user_id")
       .notNull()
       .references(() => usersTable.id, { onDelete: "cascade" }),
-    status: varchar("status", { length: 20 }).$type<
+    status: varchar("status", { length: 40 }).$type<
       "waiting" | "matched" | "completed"
     >(),
     interests: text("interests").array(),
@@ -602,12 +634,14 @@ export const paymentsTable = pgTable(
       .notNull()
       .references(() => usersTable.id, { onDelete: "cascade" }),
     stripeCustomerId: text("stripe_customer_id").notNull().unique(),
-    subscriptionType: varchar("subscription_type", { length: 20 }).default(
-      "free",
-    ),
-    nextBillingDate: timestamp("next_billing_date", { withTimezone: true }),
-    paymentStatus: varchar("payment_status", { length: 20 }).default("active"),
+    subscriptionType: subscriptionTierEnum("subscription_type")
+      .default("economy")
+      .notNull(),
+    paymentStatus: paymentStatusEnum("payment_status")
+      .default("inactive")
+      .notNull(),
     lastUpdated: timestamp("last_updated", { withTimezone: true }).defaultNow(),
+    nextBillingDate: timestamp("next_billing_date", { withTimezone: true }),
   },
   (table) => [uniqueIndex("unique_payment_idx").on(table.userId)],
 );
@@ -626,11 +660,20 @@ export const premiumFeaturesTable = pgTable("premium_features", {
   userId: text("user_id")
     .primaryKey()
     .references(() => usersTable.id, { onDelete: "cascade" }),
+
   visibilityBoost: boolean("visibility_boost").default(false),
   lastBoostedAt: timestamp("last_boosted_at"),
   expiresAt: timestamp("expires_at"),
-  superlikesRemaining: integer("superlikes_remaining").default(0),
-  boostsRemaining: integer("boosts_remaining").default(0),
+
+  superlikesRemaining: integer("superlikes_remaining").default(0).notNull(),
+  boostsRemaining: integer("boosts_remaining").default(0).notNull(),
+
+  hasActiveCruisePass: boolean("has_active_cruise_pass")
+    .default(false)
+    .notNull(),
+  loveLettersRemaining: integer("love_letters_remaining").default(0).notNull(),
+  recallsRemaining: integer("recalls_remaining").default(0).notNull(),
+  videoCallsRemaining: integer("video_calls_remaining").default(0).notNull(),
 });
 
 export type InsertPremiumFeature = typeof premiumFeaturesTable.$inferInsert;

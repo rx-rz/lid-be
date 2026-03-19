@@ -1,6 +1,6 @@
 {
-  "id": "f140d358-0f6f-4c44-bed0-6c94ef0fbd18",
-  "prevId": "00000000-0000-0000-0000-000000000000",
+  "id": "b9ad020f-2f19-4b51-97c0-1274171017c2",
+  "prevId": "f140d358-0f6f-4c44-bed0-6c94ef0fbd18",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -1246,14 +1246,42 @@
           "name": "superlikes_remaining",
           "type": "integer",
           "primaryKey": false,
-          "notNull": false,
+          "notNull": true,
           "default": 0
         },
         "boosts_remaining": {
           "name": "boosts_remaining",
           "type": "integer",
           "primaryKey": false,
-          "notNull": false,
+          "notNull": true,
+          "default": 0
+        },
+        "has_active_cruise_pass": {
+          "name": "has_active_cruise_pass",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "love_letters_remaining": {
+          "name": "love_letters_remaining",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "recalls_remaining": {
+          "name": "recalls_remaining",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "video_calls_remaining": {
+          "name": "video_calls_remaining",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
           "default": 0
         }
       },

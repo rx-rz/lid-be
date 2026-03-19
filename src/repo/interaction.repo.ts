@@ -132,8 +132,23 @@ export const interactionRepo = {
       ...matchedUserIds.map((u) => u.userId),
     ]);
   },
-
-  checkAndIncrementSwipeLimit: async (userId: string): Promise<void> => {
+  deleteDislike: async (dislikerId: string, dislikedId: string) => {
+    const [deleted] = await db
+      .delete(dislikesTable)
+      .where(
+        and(
+          eq(dislikesTable.dislikerId, dislikerId),
+          eq(dislikesTable.dislikedId, dislikedId),
+        ),
+      )
+      .returning();
+    return deleted;
+  },
+  // NEW: Accepts dynamic limit
+  checkAndIncrementSwipeLimit: async (
+    userId: string,
+    limit: number,
+  ): Promise<void> => {
     const now = new Date();
     const windowCutoff = new Date(now.getTime() - 24 * 60 * 60 * 1000);
 
@@ -154,7 +169,7 @@ export const interactionRepo = {
       return;
     }
 
-    if (record.swipeCount >= 25) {
+    if (record.swipeCount >= limit) {
       const resetTime = new Date(
         record.windowStart.getTime() + 24 * 60 * 60 * 1000,
       );

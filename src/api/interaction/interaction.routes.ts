@@ -1,25 +1,29 @@
 import { Elysia, t } from "elysia";
 import { interactionService } from "./interaction.services";
 
-const LikesListSchema = t.Array(
+const InteractionUserSchema = t.Nullable(
   t.Object({
-    likedId: t.String(),
-    likedAt: t.Union([t.Date(), t.String()]), // Drizzle returns Date, JSON serializes to String
-    superLike: t.Boolean(),
-    images: t.Array(t.String()),
-    user: t.Nullable(
-      t.Object({
-        id: t.String(),
-        name: t.Nullable(t.String()), // Explicitly nullable per your screenshot
-        email: t.Nullable(t.String()), // Explicitly nullable per your screenshot
-        age: t.Nullable(t.Number()),
-      }),
-    ),
+    id: t.String(),
+    name: t.Nullable(t.String()),
+    email: t.Nullable(t.String()),
+    age: t.Nullable(t.Number()),
   }),
 );
+
+const LikesListSchema = t.Array(
+  t.Object({
+    likedId: t.Optional(t.String()),
+    userId: t.Optional(t.String()),
+    likedAt: t.Union([t.Date(), t.String()]),
+    superLike: t.Boolean(),
+    images: t.Array(t.String()),
+    user: InteractionUserSchema,
+  }),
+);
+
 const ErrorSchema = t.Object({ error: t.String() });
 
-export const interactionRoutes = new Elysia()
+export const interactionRoutes = new Elysia({ name: "routes.interaction" })
   .post(
     "/likes",
     async ({ body, set }) => {
@@ -30,13 +34,21 @@ export const interactionRoutes = new Elysia()
           body.superLike,
         );
         set.status = 201;
-        return result;
+        return result as any;
       } catch (error: any) {
         if (error.message?.startsWith("SWIPE_LIMIT_REACHED:")) {
           const resetTime = error.message.split(":").slice(1).join(":");
           set.status = 429;
           return { error: "Swipe limit reached", resetTime };
         }
+
+        if (error.message === "INSUFFICIENT_SUPERLIKES") {
+          set.status = 402;
+          return {
+            error: "You are out of Super Likes. Please upgrade or buy more.",
+          };
+        }
+
         set.status = error.message.includes("exist") ? 404 : 400;
         return { error: error.message || "Failed to process like" };
       }
@@ -47,6 +59,13 @@ export const interactionRoutes = new Elysia()
         likedId: t.String(),
         superLike: t.Optional(t.Boolean()),
       }),
+      response: {
+        201: t.Any(),
+        400: ErrorSchema,
+        402: ErrorSchema,
+        404: ErrorSchema,
+        429: t.Object({ error: t.String(), resetTime: t.String() }),
+      },
       detail: { tags: ["Interactions"], summary: "Like a User" },
     },
   )
@@ -55,7 +74,7 @@ export const interactionRoutes = new Elysia()
     async ({ params: { userId }, set }) => {
       try {
         const likedUsers = await interactionService.getLikedUsers(userId);
-        return likedUsers;
+        return likedUsers as any;
       } catch (error: any) {
         set.status = 500;
         return { error: "Failed to fetch liked users" };
@@ -78,7 +97,7 @@ export const interactionRoutes = new Elysia()
     async ({ params: { userId }, set }) => {
       try {
         const receivedLikes = await interactionService.getReceivedLikes(userId);
-        return receivedLikes;
+        return receivedLikes as any;
       } catch (error: any) {
         set.status = 500;
         return { error: "Failed to fetch received likes" };
@@ -96,6 +115,7 @@ export const interactionRoutes = new Elysia()
       },
     },
   )
+
   .post(
     "/dislikes",
     async ({ body, set }) => {
@@ -105,7 +125,7 @@ export const interactionRoutes = new Elysia()
           body.dislikedId,
         );
         set.status = 201;
-        return dislike;
+        return dislike as any;
       } catch (error: any) {
         if (error.message?.startsWith("SWIPE_LIMIT_REACHED:")) {
           const resetTime = error.message.split(":").slice(1).join(":");
@@ -121,7 +141,53 @@ export const interactionRoutes = new Elysia()
         dislikerId: t.String(),
         dislikedId: t.String(),
       }),
-
+      response: {
+        201: t.Any(),
+        400: ErrorSchema,
+        404: ErrorSchema,
+        429: t.Object({ error: t.String(), resetTime: t.String() }),
+      },
       detail: { tags: ["Interactions"], summary: "Dislike a User" },
+    },
+  ) // Add this chain to your interactionRoutes in interaction.routes.ts
+  .post(
+    "/dislikes/rewind",
+    async ({ body, set }) => {
+      try {
+        const result = await interactionService.rewindDislike(
+          body.userId,
+          body.dislikedId,
+        );
+        set.status = 200;
+        return result;
+      } catch (error: any) {
+        // Handle the empty wallet error
+        if (error.message === "INSUFFICIENT_RECALLS") {
+          set.status = 402;
+          return {
+            error: "You are out of Recalls. Please upgrade or buy more.",
+          };
+        }
+
+        set.status = error.message.includes("found") ? 404 : 400;
+        return { error: error.message || "Failed to rewind dislike" };
+      }
+    },
+    {
+      body: t.Object({
+        userId: t.String(),
+        dislikedId: t.String(),
+      }),
+      response: {
+        200: t.Object({
+          success: t.Boolean(),
+          message: t.String(),
+          recallsRemaining: t.Number(),
+        }),
+        400: ErrorSchema,
+        402: ErrorSchema,
+        404: ErrorSchema,
+      },
+      detail: { tags: ["Interactions"], summary: "Rewind (Undo) a Dislike" },
     },
   );

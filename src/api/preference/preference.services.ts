@@ -12,7 +12,6 @@ export const preferenceService = {
       if (!preference) {
         throw new InternalServerError("Failed to create user preferences.");
       }
-
       return preference;
     } catch (err: any) {
       // 23503 is the Postgres code for a Foreign Key Violation

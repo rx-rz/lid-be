@@ -1,6 +1,6 @@
 {
-  "id": "f140d358-0f6f-4c44-bed0-6c94ef0fbd18",
-  "prevId": "00000000-0000-0000-0000-000000000000",
+  "id": "cb0ab140-ab6e-4df9-818c-dbd9c162cbff",
+  "prevId": "b9ad020f-2f19-4b51-97c0-1274171017c2",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -743,7 +743,7 @@
         },
         "status": {
           "name": "status",
-          "type": "varchar(20)",
+          "type": "varchar(40)",
           "primaryKey": false,
           "notNull": false,
           "default": "'pending'"
@@ -935,28 +935,28 @@
         },
         "pronouns": {
           "name": "pronouns",
-          "type": "varchar(50)",
+          "type": "varchar(300)",
           "primaryKey": false,
           "notNull": false,
           "default": "''"
         },
         "zodiac": {
           "name": "zodiac",
-          "type": "varchar(50)",
+          "type": "varchar(300)",
           "primaryKey": false,
           "notNull": false,
           "default": "''"
         },
         "bio": {
           "name": "bio",
-          "type": "varchar(50)",
+          "type": "varchar(300)",
           "primaryKey": false,
           "notNull": false,
           "default": "''"
         },
         "why_here": {
           "name": "why_here",
-          "type": "varchar(100)",
+          "type": "varchar(200)",
           "primaryKey": false,
           "notNull": false
         },
@@ -974,70 +974,70 @@
         },
         "religion": {
           "name": "religion",
-          "type": "varchar(50)",
+          "type": "varchar(300)",
           "primaryKey": false,
           "notNull": false,
           "default": "''"
         },
         "education": {
           "name": "education",
-          "type": "varchar(50)",
+          "type": "varchar(300)",
           "primaryKey": false,
           "notNull": false,
           "default": "''"
         },
         "pets": {
           "name": "pets",
-          "type": "varchar(50)",
+          "type": "varchar(300)",
           "primaryKey": false,
           "notNull": false,
           "default": "''"
         },
         "age": {
           "name": "age",
-          "type": "varchar(50)",
+          "type": "varchar(300)",
           "primaryKey": false,
           "notNull": false,
           "default": "''"
         },
         "distance": {
           "name": "distance",
-          "type": "varchar(50)",
+          "type": "varchar(300)",
           "primaryKey": false,
           "notNull": false,
           "default": "''"
         },
         "language": {
           "name": "language",
-          "type": "varchar(50)[]",
+          "type": "varchar(300)[]",
           "primaryKey": false,
           "notNull": false,
           "default": "'{}'"
         },
         "ethnicity": {
           "name": "ethnicity",
-          "type": "varchar(50)[]",
+          "type": "varchar(300)[]",
           "primaryKey": false,
           "notNull": false,
           "default": "'{}'"
         },
         "family_plans": {
           "name": "family_plans",
-          "type": "varchar(50)",
+          "type": "varchar(300)",
           "primaryKey": false,
           "notNull": false,
           "default": "''"
         },
         "gender": {
           "name": "gender",
-          "type": "varchar(50)",
+          "type": "varchar(300)",
           "primaryKey": false,
           "notNull": false,
           "default": "''"
         },
         "height": {
           "name": "height",
-          "type": "varchar(50)",
+          "type": "varchar(300)",
           "primaryKey": false,
           "notNull": false,
           "default": "''"
@@ -1065,77 +1065,77 @@
         },
         "job_title": {
           "name": "job_title",
-          "type": "varchar(100)",
+          "type": "varchar(200)",
           "primaryKey": false,
           "notNull": false,
           "default": "''"
         },
         "company": {
           "name": "company",
-          "type": "varchar(100)",
+          "type": "varchar(200)",
           "primaryKey": false,
           "notNull": false,
           "default": "''"
         },
         "school": {
           "name": "school",
-          "type": "varchar(100)",
+          "type": "varchar(200)",
           "primaryKey": false,
           "notNull": false,
           "default": "''"
         },
         "sexuality": {
           "name": "sexuality",
-          "type": "varchar(50)",
+          "type": "varchar(300)",
           "primaryKey": false,
           "notNull": false,
           "default": "''"
         },
         "body_type": {
           "name": "body_type",
-          "type": "varchar(50)",
+          "type": "varchar(300)",
           "primaryKey": false,
           "notNull": false,
           "default": "''"
         },
         "dietary_preference": {
           "name": "dietary_preference",
-          "type": "varchar(50)",
+          "type": "varchar(300)",
           "primaryKey": false,
           "notNull": false,
           "default": "''"
         },
         "sleeping_habits": {
           "name": "sleeping_habits",
-          "type": "varchar(50)",
+          "type": "varchar(300)",
           "primaryKey": false,
           "notNull": false,
           "default": "''"
         },
         "workout_frequency": {
           "name": "workout_frequency",
-          "type": "varchar(50)",
+          "type": "varchar(300)",
           "primaryKey": false,
           "notNull": false,
           "default": "''"
         },
         "love_language": {
           "name": "love_language",
-          "type": "varchar(50)",
+          "type": "varchar(300)",
           "primaryKey": false,
           "notNull": false,
           "default": "''"
         },
         "travel_plans": {
           "name": "travel_plans",
-          "type": "varchar(100)",
+          "type": "varchar(200)",
           "primaryKey": false,
           "notNull": false,
           "default": "''"
         },
         "personality": {
           "name": "personality",
-          "type": "varchar(50)",
+          "type": "varchar(300)",
           "primaryKey": false,
           "notNull": false,
           "default": "''"
@@ -1149,7 +1149,7 @@
         },
         "relationship_status": {
           "name": "relationship_status",
-          "type": "varchar(50)",
+          "type": "varchar(300)",
           "primaryKey": false,
           "notNull": false,
           "default": "''"
@@ -1246,14 +1246,42 @@
           "name": "superlikes_remaining",
           "type": "integer",
           "primaryKey": false,
-          "notNull": false,
+          "notNull": true,
           "default": 0
         },
         "boosts_remaining": {
           "name": "boosts_remaining",
           "type": "integer",
           "primaryKey": false,
-          "notNull": false,
+          "notNull": true,
+          "default": 0
+        },
+        "has_active_cruise_pass": {
+          "name": "has_active_cruise_pass",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "love_letters_remaining": {
+          "name": "love_letters_remaining",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "recalls_remaining": {
+          "name": "recalls_remaining",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "video_calls_remaining": {
+          "name": "video_calls_remaining",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
           "default": 0
         }
       },
@@ -1623,7 +1651,7 @@
         },
         "status": {
           "name": "status",
-          "type": "varchar(20)",
+          "type": "varchar(40)",
           "primaryKey": false,
           "notNull": false
         },
@@ -1813,7 +1841,7 @@
         },
         "display_name": {
           "name": "display_name",
-          "type": "varchar(50)",
+          "type": "varchar(300)",
           "primaryKey": false,
           "notNull": false
         },
@@ -1866,7 +1894,7 @@
         },
         "phone": {
           "name": "phone",
-          "type": "varchar(20)",
+          "type": "varchar(40)",
           "primaryKey": false,
           "notNull": false
         },
@@ -2074,7 +2102,7 @@
         },
         "status": {
           "name": "status",
-          "type": "varchar(20)",
+          "type": "varchar(40)",
           "primaryKey": false,
           "notNull": false,
           "default": "'ongoing'"
