@@ -63,19 +63,15 @@ export const preferenceRoutes = new Elysia({ prefix: "/preference" })
     },
   )
   .patch(
-    "/:id/:userId",
-    async ({ params: { id, userId }, body, set }) => {
-      const updatedPreference = await preferenceService.update(
-        Number(id),
-        userId,
-        body,
-      );
+    "/:userId",
+    async ({ params: { userId }, body, set }) => {
+      const updatedPreference = await preferenceService.update(userId, body);
       if (!updatedPreference) throw new Error("Preference not updated");
       set.status = 200;
       return updatedPreference;
     },
     {
-      params: t.Object({ id: t.String(), userId: t.String() }),
+      params: t.Object({ userId: t.String() }),
       body: PreferenceSchema,
       detail: {
         tags: ["Preferences"],

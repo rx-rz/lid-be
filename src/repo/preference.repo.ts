@@ -8,7 +8,7 @@ export const preferenceRepo = {
       .insert(preferencesTable)
       .values({ userId, lookingToDate })
       .onConflictDoUpdate({
-        target: preferencesTable.userId, 
+        target: preferencesTable.userId,
         set: {
           lookingToDate,
         },
@@ -18,13 +18,11 @@ export const preferenceRepo = {
     return preference;
   },
 
-  getPreferenceByIdOrUserId: async (id: number, userId: string) => {
+  getPreferenceByIdOrUserId: async (userId: string) => {
     const [preference] = await db
       .select()
       .from(preferencesTable)
-      .where(
-        or(eq(preferencesTable.id, id), eq(preferencesTable.userId, userId)),
-      )
+      .where(eq(preferencesTable.userId, userId))
       .limit(1);
     return preference;
   },
@@ -39,16 +37,13 @@ export const preferenceRepo = {
   },
 
   updatePreference: async (
-    id: number,
     userId: string,
     data: Partial<typeof preferencesTable.$inferInsert>,
   ) => {
     const [updatedPreference] = await db
       .update(preferencesTable)
       .set(data)
-      .where(
-        or(eq(preferencesTable.id, id), eq(preferencesTable.userId, userId)),
-      )
+      .where(eq(preferencesTable.userId, userId))
       .returning();
     return updatedPreference;
   },

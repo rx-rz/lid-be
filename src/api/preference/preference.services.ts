@@ -34,9 +34,8 @@ export const preferenceService = {
     }
   },
 
-  update: async (id: number, userId: string, data: any) => {
+  update: async (userId: string, data: any) => {
     const existingPreference = await preferenceRepo.getPreferenceByIdOrUserId(
-      id,
       userId,
     );
 
@@ -53,7 +52,6 @@ export const preferenceService = {
     };
 
     const updatedPreference = await preferenceRepo.updatePreference(
-      id,
       userId,
       mergedData,
     );
