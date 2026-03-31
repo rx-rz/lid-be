@@ -26,7 +26,9 @@ const app = new Elysia({ prefix: "/api/v1" })
     openapi({
       scalar: {
         theme: "moon",
+        
       },
+      
       documentation: {
         info: {
           title: "Love In Diaspora Backend Documentation",
