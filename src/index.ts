@@ -28,7 +28,7 @@ const app = new Elysia({ prefix: "/api/v1" })
         theme: "moon",
         
       },
-      
+      provider: "swagger-ui",
       documentation: {
         info: {
           title: "Love In Diaspora Backend Documentation",
