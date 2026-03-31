@@ -1,0 +1,4401 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Love In Diaspora Backend Documentation",
+    "description": "Development documentation",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/api/v1/user": {
+      "post": {
+        "tags": [
+          "User"
+        ],
+        "summary": "Create User Profile (Onboarding Step 1)",
+        "description": "Creates a new user account and automatically generates a default profile attached to it.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "clerkId"
+                ],
+                "properties": {
+                  "clerkId": {
+                    "type": "string"
+                  },
+                  "phone": {
+                    "type": "string"
+                  }
+                }
+              }
+            },
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "clerkId"
+                ],
+                "properties": {
+                  "clerkId": {
+                    "type": "string"
+                  },
+                  "phone": {
+                    "type": "string"
+                  }
+                }
+              }
+            },
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "clerkId"
+                ],
+                "properties": {
+                  "clerkId": {
+                    "type": "string"
+                  },
+                  "phone": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Response for status 201",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "id",
+                    "displayName",
+                    "email",
+                    "gender",
+                    "birthday",
+                    "verified",
+                    "showGender",
+                    "lastLogin",
+                    "phone",
+                    "createdAt",
+                    "updatedAt",
+                    "fcmToken",
+                    "streamToken"
+                  ],
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "displayName": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "email": {
+                      "anyOf": [
+                        {
+                          "format": "email",
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "gender": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "birthday": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "verified": {
+                      "anyOf": [
+                        {
+                          "type": "boolean"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "showGender": {
+                      "anyOf": [
+                        {
+                          "type": "boolean"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "lastLogin": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "anyOf": [
+                            {
+                              "type": "Date"
+                            },
+                            {
+                              "format": "date-time",
+                              "type": "string"
+                            },
+                            {
+                              "format": "date",
+                              "type": "string"
+                            },
+                            {
+                              "type": "number"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "subscriptionType": {
+                      "type": "string",
+                      "enum": [
+                        "economy",
+                        "premium-economy",
+                        "first-class",
+                        "weekender"
+                      ]
+                    },
+                    "phone": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "createdAt": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "anyOf": [
+                            {
+                              "type": "Date"
+                            },
+                            {
+                              "format": "date-time",
+                              "type": "string"
+                            },
+                            {
+                              "format": "date",
+                              "type": "string"
+                            },
+                            {
+                              "type": "number"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "updatedAt": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "anyOf": [
+                            {
+                              "type": "Date"
+                            },
+                            {
+                              "format": "date-time",
+                              "type": "string"
+                            },
+                            {
+                              "format": "date",
+                              "type": "string"
+                            },
+                            {
+                              "type": "number"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "fcmToken": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "streamToken": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Response for status 400",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "operationId": "postApiV1User"
+      }
+    },
+    "/api/v1/user/{id}": {
+      "patch": {
+        "tags": [
+          "User"
+        ],
+        "summary": "Update User Details",
+        "description": "Partially updates an existing user's information.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "birthday": {
+                    "type": "string"
+                  },
+                  "gender": {
+                    "type": "string",
+                    "enum": [
+                      "MAN",
+                      "WOMAN",
+                      "NONBINARY"
+                    ]
+                  },
+                  "email": {
+                    "type": "string"
+                  },
+                  "lastLogin": {
+                    "type": "string"
+                  },
+                  "displayName": {
+                    "type": "string"
+                  },
+                  "subscriptionType": {
+                    "type": "string",
+                    "enum": [
+                      "economy",
+                      "premium-economy",
+                      "first-class",
+                      "weekender"
+                    ]
+                  },
+                  "phone": {
+                    "type": "string"
+                  },
+                  "onboardingPage": {
+                    "type": "string",
+                    "enum": [
+                      "DisplayName",
+                      "Birthday",
+                      "Gender",
+                      "DatingPreference",
+                      "Interests",
+                      "AddPhotos"
+                    ]
+                  },
+                  "showGender": {
+                    "type": "boolean"
+                  }
+                }
+              }
+            },
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "birthday": {
+                    "type": "string"
+                  },
+                  "gender": {
+                    "type": "string",
+                    "enum": [
+                      "MAN",
+                      "WOMAN",
+                      "NONBINARY"
+                    ]
+                  },
+                  "email": {
+                    "type": "string"
+                  },
+                  "lastLogin": {
+                    "type": "string"
+                  },
+                  "displayName": {
+                    "type": "string"
+                  },
+                  "subscriptionType": {
+                    "type": "string",
+                    "enum": [
+                      "economy",
+                      "premium-economy",
+                      "first-class",
+                      "weekender"
+                    ]
+                  },
+                  "phone": {
+                    "type": "string"
+                  },
+                  "onboardingPage": {
+                    "type": "string",
+                    "enum": [
+                      "DisplayName",
+                      "Birthday",
+                      "Gender",
+                      "DatingPreference",
+                      "Interests",
+                      "AddPhotos"
+                    ]
+                  },
+                  "showGender": {
+                    "type": "boolean"
+                  }
+                }
+              }
+            },
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "birthday": {
+                    "type": "string"
+                  },
+                  "gender": {
+                    "type": "string",
+                    "enum": [
+                      "MAN",
+                      "WOMAN",
+                      "NONBINARY"
+                    ]
+                  },
+                  "email": {
+                    "type": "string"
+                  },
+                  "lastLogin": {
+                    "type": "string"
+                  },
+                  "displayName": {
+                    "type": "string"
+                  },
+                  "subscriptionType": {
+                    "type": "string",
+                    "enum": [
+                      "economy",
+                      "premium-economy",
+                      "first-class",
+                      "weekender"
+                    ]
+                  },
+                  "phone": {
+                    "type": "string"
+                  },
+                  "onboardingPage": {
+                    "type": "string",
+                    "enum": [
+                      "DisplayName",
+                      "Birthday",
+                      "Gender",
+                      "DatingPreference",
+                      "Interests",
+                      "AddPhotos"
+                    ]
+                  },
+                  "showGender": {
+                    "type": "boolean"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Response for status 200",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "id",
+                    "displayName",
+                    "email",
+                    "gender",
+                    "birthday",
+                    "verified",
+                    "showGender",
+                    "lastLogin",
+                    "phone",
+                    "createdAt",
+                    "updatedAt",
+                    "fcmToken",
+                    "streamToken"
+                  ],
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "displayName": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "email": {
+                      "anyOf": [
+                        {
+                          "format": "email",
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "gender": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "birthday": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "verified": {
+                      "anyOf": [
+                        {
+                          "type": "boolean"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "showGender": {
+                      "anyOf": [
+                        {
+                          "type": "boolean"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "lastLogin": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "anyOf": [
+                            {
+                              "type": "Date"
+                            },
+                            {
+                              "format": "date-time",
+                              "type": "string"
+                            },
+                            {
+                              "format": "date",
+                              "type": "string"
+                            },
+                            {
+                              "type": "number"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "subscriptionType": {
+                      "type": "string",
+                      "enum": [
+                        "economy",
+                        "premium-economy",
+                        "first-class",
+                        "weekender"
+                      ]
+                    },
+                    "phone": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "createdAt": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "anyOf": [
+                            {
+                              "type": "Date"
+                            },
+                            {
+                              "format": "date-time",
+                              "type": "string"
+                            },
+                            {
+                              "format": "date",
+                              "type": "string"
+                            },
+                            {
+                              "type": "number"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "updatedAt": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "anyOf": [
+                            {
+                              "type": "Date"
+                            },
+                            {
+                              "format": "date-time",
+                              "type": "string"
+                            },
+                            {
+                              "format": "date",
+                              "type": "string"
+                            },
+                            {
+                              "type": "number"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "fcmToken": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "streamToken": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Response for status 404",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Response for status 500",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "operationId": "patchApiV1UserById"
+      },
+      "delete": {
+        "tags": [
+          "User"
+        ],
+        "summary": "Delete User Account",
+        "description": "Permanently deletes a user and triggers a cascading deletion of all associated data.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "minLength": 1,
+              "error": "User ID is required",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Response for status 204",
+            "content": {
+              "type": "void"
+            }
+          }
+        },
+        "operationId": "deleteApiV1UserById"
+      }
+    },
+    "/api/v1/user/stream/{userId}": {
+      "patch": {
+        "tags": [
+          "User"
+        ],
+        "summary": "Update Stream.io Token",
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "streamToken"
+                ],
+                "properties": {
+                  "streamToken": {
+                    "type": "string"
+                  }
+                }
+              }
+            },
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "streamToken"
+                ],
+                "properties": {
+                  "streamToken": {
+                    "type": "string"
+                  }
+                }
+              }
+            },
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "streamToken"
+                ],
+                "properties": {
+                  "streamToken": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Response for status 201",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "message"
+                  ],
+                  "properties": {
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "operationId": "patchApiV1UserStreamByUserId"
+      }
+    },
+    "/api/v1/user/{userId}/mutual-likes": {
+      "get": {
+        "tags": [
+          "User"
+        ],
+        "summary": "Get Mutual Likes",
+        "description": "Returns all users who have liked each other (but haven't matched yet).",
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "minLength": 1,
+              "error": "User ID is required",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Response for status 200",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "mutualLikes"
+                  ],
+                  "properties": {
+                    "mutualLikes": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "userId",
+                          "likedAt",
+                          "superLike",
+                          "user",
+                          "images"
+                        ],
+                        "properties": {
+                          "userId": {
+                            "type": "string"
+                          },
+                          "likedAt": {
+                            "anyOf": [
+                              {
+                                "anyOf": [
+                                  {
+                                    "type": "Date"
+                                  },
+                                  {
+                                    "format": "date-time",
+                                    "type": "string"
+                                  },
+                                  {
+                                    "format": "date",
+                                    "type": "string"
+                                  },
+                                  {
+                                    "type": "number"
+                                  }
+                                ]
+                              },
+                              {
+                                "type": "string"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "superLike": {
+                            "type": "boolean"
+                          },
+                          "user": {
+                            "type": "object",
+                            "required": [
+                              "id",
+                              "name",
+                              "email",
+                              "age"
+                            ],
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "name": {
+                                "nullable": true,
+                                "anyOf": [
+                                  {
+                                    "type": "string"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "email": {
+                                "nullable": true,
+                                "anyOf": [
+                                  {
+                                    "type": "string"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "age": {
+                                "nullable": true,
+                                "anyOf": [
+                                  {
+                                    "type": "number"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              }
+                            }
+                          },
+                          "images": {}
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "operationId": "getApiV1UserByUserIdMutual-likes"
+      }
+    },
+    "/api/v1/user/{userId}": {
+      "get": {
+        "tags": [
+          "User"
+        ],
+        "summary": "Get User by ID",
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Response for status 200",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "id",
+                    "displayName",
+                    "email",
+                    "subscription",
+                    "image",
+                    "whyHere"
+                  ],
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "displayName": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "email": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "subscription": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "image": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "whyHere": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "location": {
+                      "nullable": true,
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "required": [
+                            "name",
+                            "abrv",
+                            "flag"
+                          ],
+                          "properties": {
+                            "name": {
+                              "type": "string"
+                            },
+                            "abrv": {
+                              "type": "string"
+                            },
+                            "flag": {
+                              "type": "string"
+                            }
+                          }
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "onboardingPage": {
+                      "nullable": true,
+                      "anyOf": [
+                        {
+                          "anyOf": [
+                            {
+                              "const": "DisplayName",
+                              "type": "string"
+                            },
+                            {
+                              "const": "Birthday",
+                              "type": "string"
+                            },
+                            {
+                              "const": "Gender",
+                              "type": "string"
+                            },
+                            {
+                              "const": "DatingPreference",
+                              "type": "string"
+                            },
+                            {
+                              "const": "Interests",
+                              "type": "string"
+                            },
+                            {
+                              "const": "AddPhotos",
+                              "type": "string"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Response for status 404",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "operationId": "getApiV1UserByUserId"
+      }
+    },
+    "/api/v1/fcm-token": {
+      "put": {
+        "tags": [
+          "User"
+        ],
+        "summary": "Update FCM Push Token",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "userId",
+                  "fcmToken"
+                ],
+                "properties": {
+                  "userId": {
+                    "type": "string"
+                  },
+                  "fcmToken": {
+                    "type": "string"
+                  }
+                }
+              }
+            },
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "userId",
+                  "fcmToken"
+                ],
+                "properties": {
+                  "userId": {
+                    "type": "string"
+                  },
+                  "fcmToken": {
+                    "type": "string"
+                  }
+                }
+              }
+            },
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "userId",
+                  "fcmToken"
+                ],
+                "properties": {
+                  "userId": {
+                    "type": "string"
+                  },
+                  "fcmToken": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Response for status 200",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "message"
+                  ],
+                  "properties": {
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "operationId": "putApiV1Fcm-token"
+      }
+    },
+    "/api/v1/users": {
+      "get": {
+        "tags": [
+          "User"
+        ],
+        "summary": "Get Users (Advanced Matchmaking)",
+        "description": "Advanced user search with location-based matching and multiple preference filters. Automatically excludes blocked users, existing likes, and existing dislikes.",
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "radius",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "age",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "gender",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "activity",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "const": "justJoined",
+              "type": "string"
+            }
+          },
+          {
+            "name": "country",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "smoking",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "hasBio",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "drinking",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "minPhotos",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "familyPlans",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "zodiac",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "height",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "ethnicity",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "educationLevel",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "lookingFor",
+            "in": "query",
+            "required": false,
+            "schema": {}
+          },
+          {
+            "name": "workoutFrequency",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "personality",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "language",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "bodyType",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "loveLanguage",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "opennessToLongDistance",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "willingToRelocate",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "religion",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "pets",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "sexuality",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "dietaryPreference",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "sleepingHabits",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "travelPlans",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "relationshipStatus",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Response for status 200",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "users",
+                    "nextCursor"
+                  ],
+                  "properties": {
+                    "users": {
+                      "type": "array",
+                      "items": {}
+                    },
+                    "nextCursor": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Response for status 400",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "status",
+                    "message"
+                  ],
+                  "properties": {
+                    "status": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Response for status 422",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "status",
+                    "message"
+                  ],
+                  "properties": {
+                    "status": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "operationId": "getApiV1Users"
+      }
+    },
+    "/api/v1/profile": {
+      "post": {
+        "tags": [
+          "Profiles"
+        ],
+        "summary": "Create Profile",
+        "description": "Creates a user profile with bio and interests.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "userId",
+                  "bio",
+                  "interests"
+                ],
+                "properties": {
+                  "userId": {
+                    "type": "string"
+                  },
+                  "bio": {
+                    "type": "string"
+                  },
+                  "interests": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            },
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "userId",
+                  "bio",
+                  "interests"
+                ],
+                "properties": {
+                  "userId": {
+                    "type": "string"
+                  },
+                  "bio": {
+                    "type": "string"
+                  },
+                  "interests": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            },
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "userId",
+                  "bio",
+                  "interests"
+                ],
+                "properties": {
+                  "userId": {
+                    "type": "string"
+                  },
+                  "bio": {
+                    "type": "string"
+                  },
+                  "interests": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "operationId": "postApiV1Profile"
+      }
+    },
+    "/api/v1/profile/{userId}": {
+      "get": {
+        "tags": [
+          "Profiles"
+        ],
+        "summary": "Get Profile",
+        "description": "Retrieves a complete profile with joined user data, preferences, and images.",
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "operationId": "getApiV1ProfileByUserId"
+      },
+      "put": {
+        "tags": [
+          "Profiles"
+        ],
+        "summary": "Update Profile",
+        "description": "Updates profile bio and/or interests.",
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "bio": {
+                    "type": "string"
+                  },
+                  "interests": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            },
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "bio": {
+                    "type": "string"
+                  },
+                  "interests": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            },
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "bio": {
+                    "type": "string"
+                  },
+                  "interests": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "operationId": "putApiV1ProfileByUserId"
+      },
+      "delete": {
+        "tags": [
+          "Profiles"
+        ],
+        "summary": "Delete Profile",
+        "description": "Deletes a user's profile.",
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "operationId": "deleteApiV1ProfileByUserId"
+      }
+    },
+    "/api/v1/profile-views/": {
+      "post": {
+        "tags": [
+          "Profile Views"
+        ],
+        "summary": "Record Profile View",
+        "description": "Records a profile view from one user to another and triggers real-time notifications.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "viewerId",
+                  "viewedId"
+                ],
+                "properties": {
+                  "viewerId": {
+                    "type": "string"
+                  },
+                  "viewedId": {
+                    "type": "string"
+                  }
+                }
+              }
+            },
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "viewerId",
+                  "viewedId"
+                ],
+                "properties": {
+                  "viewerId": {
+                    "type": "string"
+                  },
+                  "viewedId": {
+                    "type": "string"
+                  }
+                }
+              }
+            },
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "viewerId",
+                  "viewedId"
+                ],
+                "properties": {
+                  "viewerId": {
+                    "type": "string"
+                  },
+                  "viewedId": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "operationId": "postApiV1Profile-views"
+      },
+      "delete": {
+        "tags": [
+          "Profile Views"
+        ],
+        "summary": "Cleanup Old Profile Views",
+        "description": "Deletes profile views older than 7 days.",
+        "operationId": "deleteApiV1Profile-views"
+      }
+    },
+    "/api/v1/profile-views/{userId}": {
+      "get": {
+        "tags": [
+          "Profile Views"
+        ],
+        "summary": "Get Profile Views",
+        "description": "Retrieves deduplicated list of users who viewed the specified user's profile.",
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "markAsSeen",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "operationId": "getApiV1Profile-viewsByUserId"
+      }
+    },
+    "/api/v1/preference": {
+      "post": {
+        "tags": [
+          "Preferences"
+        ],
+        "summary": "Create base preferences",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "userId",
+                  "lookingToDate"
+                ],
+                "properties": {
+                  "userId": {
+                    "type": "string"
+                  },
+                  "lookingToDate": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            },
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "userId",
+                  "lookingToDate"
+                ],
+                "properties": {
+                  "userId": {
+                    "type": "string"
+                  },
+                  "lookingToDate": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            },
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "userId",
+                  "lookingToDate"
+                ],
+                "properties": {
+                  "userId": {
+                    "type": "string"
+                  },
+                  "lookingToDate": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "operationId": "postApiV1Preference"
+      }
+    },
+    "/api/v1/preference/{userId}": {
+      "patch": {
+        "tags": [
+          "Preferences"
+        ],
+        "summary": "Update preferences via partial payload",
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "interests": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "lookingToDate": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "ethnicity": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "language": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "pronouns": {
+                    "type": "string"
+                  },
+                  "zodiac": {
+                    "type": "string"
+                  },
+                  "bio": {
+                    "type": "string"
+                  },
+                  "whyHere": {
+                    "type": "string"
+                  },
+                  "smoking": {
+                    "type": "boolean"
+                  },
+                  "drinking": {
+                    "type": "boolean"
+                  },
+                  "religion": {
+                    "type": "string"
+                  },
+                  "education": {
+                    "type": "string"
+                  },
+                  "pets": {
+                    "type": "string"
+                  },
+                  "age": {
+                    "type": "string"
+                  },
+                  "distance": {
+                    "type": "string"
+                  },
+                  "familyPlans": {
+                    "type": "string"
+                  },
+                  "gender": {
+                    "type": "string"
+                  },
+                  "height": {
+                    "type": "string"
+                  },
+                  "jobTitle": {
+                    "type": "string"
+                  },
+                  "company": {
+                    "type": "string"
+                  },
+                  "school": {
+                    "type": "string"
+                  },
+                  "sexuality": {
+                    "type": "string"
+                  },
+                  "bodyType": {
+                    "type": "string"
+                  },
+                  "dietaryPreference": {
+                    "type": "string"
+                  },
+                  "sleepingHabits": {
+                    "type": "string"
+                  },
+                  "workoutFrequency": {
+                    "type": "string"
+                  },
+                  "loveLanguage": {
+                    "type": "string"
+                  },
+                  "travelPlans": {
+                    "type": "string"
+                  },
+                  "personality": {
+                    "type": "string"
+                  },
+                  "personalityProfile": {
+                    "type": "string"
+                  },
+                  "relationshipStatus": {
+                    "type": "string"
+                  },
+                  "willingToRelocate": {
+                    "type": "boolean"
+                  },
+                  "opennessToLongDistance": {
+                    "type": "boolean"
+                  },
+                  "hasBio": {
+                    "type": "boolean"
+                  },
+                  "minNumberOfPhotos": {
+                    "type": "string"
+                  },
+                  "connections": {
+                    "type": "string"
+                  }
+                }
+              }
+            },
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "interests": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "lookingToDate": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "ethnicity": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "language": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "pronouns": {
+                    "type": "string"
+                  },
+                  "zodiac": {
+                    "type": "string"
+                  },
+                  "bio": {
+                    "type": "string"
+                  },
+                  "whyHere": {
+                    "type": "string"
+                  },
+                  "smoking": {
+                    "type": "boolean"
+                  },
+                  "drinking": {
+                    "type": "boolean"
+                  },
+                  "religion": {
+                    "type": "string"
+                  },
+                  "education": {
+                    "type": "string"
+                  },
+                  "pets": {
+                    "type": "string"
+                  },
+                  "age": {
+                    "type": "string"
+                  },
+                  "distance": {
+                    "type": "string"
+                  },
+                  "familyPlans": {
+                    "type": "string"
+                  },
+                  "gender": {
+                    "type": "string"
+                  },
+                  "height": {
+                    "type": "string"
+                  },
+                  "jobTitle": {
+                    "type": "string"
+                  },
+                  "company": {
+                    "type": "string"
+                  },
+                  "school": {
+                    "type": "string"
+                  },
+                  "sexuality": {
+                    "type": "string"
+                  },
+                  "bodyType": {
+                    "type": "string"
+                  },
+                  "dietaryPreference": {
+                    "type": "string"
+                  },
+                  "sleepingHabits": {
+                    "type": "string"
+                  },
+                  "workoutFrequency": {
+                    "type": "string"
+                  },
+                  "loveLanguage": {
+                    "type": "string"
+                  },
+                  "travelPlans": {
+                    "type": "string"
+                  },
+                  "personality": {
+                    "type": "string"
+                  },
+                  "personalityProfile": {
+                    "type": "string"
+                  },
+                  "relationshipStatus": {
+                    "type": "string"
+                  },
+                  "willingToRelocate": {
+                    "type": "boolean"
+                  },
+                  "opennessToLongDistance": {
+                    "type": "boolean"
+                  },
+                  "hasBio": {
+                    "type": "boolean"
+                  },
+                  "minNumberOfPhotos": {
+                    "type": "string"
+                  },
+                  "connections": {
+                    "type": "string"
+                  }
+                }
+              }
+            },
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "interests": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "lookingToDate": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "ethnicity": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "language": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "pronouns": {
+                    "type": "string"
+                  },
+                  "zodiac": {
+                    "type": "string"
+                  },
+                  "bio": {
+                    "type": "string"
+                  },
+                  "whyHere": {
+                    "type": "string"
+                  },
+                  "smoking": {
+                    "type": "boolean"
+                  },
+                  "drinking": {
+                    "type": "boolean"
+                  },
+                  "religion": {
+                    "type": "string"
+                  },
+                  "education": {
+                    "type": "string"
+                  },
+                  "pets": {
+                    "type": "string"
+                  },
+                  "age": {
+                    "type": "string"
+                  },
+                  "distance": {
+                    "type": "string"
+                  },
+                  "familyPlans": {
+                    "type": "string"
+                  },
+                  "gender": {
+                    "type": "string"
+                  },
+                  "height": {
+                    "type": "string"
+                  },
+                  "jobTitle": {
+                    "type": "string"
+                  },
+                  "company": {
+                    "type": "string"
+                  },
+                  "school": {
+                    "type": "string"
+                  },
+                  "sexuality": {
+                    "type": "string"
+                  },
+                  "bodyType": {
+                    "type": "string"
+                  },
+                  "dietaryPreference": {
+                    "type": "string"
+                  },
+                  "sleepingHabits": {
+                    "type": "string"
+                  },
+                  "workoutFrequency": {
+                    "type": "string"
+                  },
+                  "loveLanguage": {
+                    "type": "string"
+                  },
+                  "travelPlans": {
+                    "type": "string"
+                  },
+                  "personality": {
+                    "type": "string"
+                  },
+                  "personalityProfile": {
+                    "type": "string"
+                  },
+                  "relationshipStatus": {
+                    "type": "string"
+                  },
+                  "willingToRelocate": {
+                    "type": "boolean"
+                  },
+                  "opennessToLongDistance": {
+                    "type": "boolean"
+                  },
+                  "hasBio": {
+                    "type": "boolean"
+                  },
+                  "minNumberOfPhotos": {
+                    "type": "string"
+                  },
+                  "connections": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "operationId": "patchApiV1PreferenceByUserId"
+      }
+    },
+    "/api/v1/preference/{id}": {
+      "get": {
+        "tags": [
+          "Preferences"
+        ],
+        "summary": "Get User Preferences",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "operationId": "getApiV1PreferenceById"
+      }
+    },
+    "/api/v1/webhook": {
+      "post": {
+        "tags": [
+          "Payments"
+        ],
+        "summary": "Handle Stripe Webhooks",
+        "operationId": "postApiV1Webhook"
+      }
+    },
+    "/api/v1/plans": {
+      "get": {
+        "tags": [
+          "Payments"
+        ],
+        "summary": "Get available subscription plans",
+        "operationId": "getApiV1Plans"
+      }
+    },
+    "/api/v1/subscription": {
+      "post": {
+        "tags": [
+          "Payments"
+        ],
+        "summary": "Create a new subscription payment intent",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "userId",
+                  "priceId"
+                ],
+                "properties": {
+                  "userId": {
+                    "type": "string"
+                  },
+                  "priceId": {
+                    "type": "string"
+                  }
+                }
+              }
+            },
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "userId",
+                  "priceId"
+                ],
+                "properties": {
+                  "userId": {
+                    "type": "string"
+                  },
+                  "priceId": {
+                    "type": "string"
+                  }
+                }
+              }
+            },
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "userId",
+                  "priceId"
+                ],
+                "properties": {
+                  "userId": {
+                    "type": "string"
+                  },
+                  "priceId": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "operationId": "postApiV1Subscription"
+      }
+    },
+    "/api/v1/status/{userId}": {
+      "get": {
+        "tags": [
+          "Payments"
+        ],
+        "summary": "Get user subscription status",
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "operationId": "getApiV1StatusByUserId"
+      }
+    },
+    "/api/v1/customer/{userId}": {
+      "get": {
+        "tags": [
+          "Payments"
+        ],
+        "summary": "Get user's Stripe Customer ID",
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "operationId": "getApiV1CustomerByUserId"
+      }
+    },
+    "/api/v1/customer": {
+      "post": {
+        "tags": [
+          "Payments"
+        ],
+        "summary": "Get or Create a Stripe Customer",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "userId",
+                  "email"
+                ],
+                "properties": {
+                  "userId": {
+                    "type": "string"
+                  },
+                  "email": {
+                    "format": "email",
+                    "type": "string"
+                  }
+                }
+              }
+            },
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "userId",
+                  "email"
+                ],
+                "properties": {
+                  "userId": {
+                    "type": "string"
+                  },
+                  "email": {
+                    "format": "email",
+                    "type": "string"
+                  }
+                }
+              }
+            },
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "userId",
+                  "email"
+                ],
+                "properties": {
+                  "userId": {
+                    "type": "string"
+                  },
+                  "email": {
+                    "format": "email",
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "operationId": "postApiV1Customer"
+      }
+    },
+    "/api/v1/images": {
+      "post": {
+        "tags": [
+          "Images"
+        ],
+        "summary": "Sync User Images (Create/Update)",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "userId",
+                  "images"
+                ],
+                "properties": {
+                  "userId": {
+                    "type": "string"
+                  },
+                  "images": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "required": [
+                        "imageUrl"
+                      ],
+                      "properties": {
+                        "order": {
+                          "type": "number"
+                        },
+                        "imageUrl": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "userId",
+                  "images"
+                ],
+                "properties": {
+                  "userId": {
+                    "type": "string"
+                  },
+                  "images": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "required": [
+                        "imageUrl"
+                      ],
+                      "properties": {
+                        "order": {
+                          "type": "number"
+                        },
+                        "imageUrl": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "userId",
+                  "images"
+                ],
+                "properties": {
+                  "userId": {
+                    "type": "string"
+                  },
+                  "images": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "required": [
+                        "imageUrl"
+                      ],
+                      "properties": {
+                        "order": {
+                          "type": "number"
+                        },
+                        "imageUrl": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "operationId": "postApiV1Images"
+      }
+    },
+    "/api/v1/image/upload-url": {
+      "get": {
+        "tags": [
+          "Images"
+        ],
+        "summary": "Get Cloudinary Upload Signature",
+        "operationId": "getApiV1ImageUpload-url"
+      }
+    },
+    "/api/v1/location/": {
+      "post": {
+        "tags": [
+          "Location"
+        ],
+        "summary": "Create User Location",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "userId",
+                  "latitude",
+                  "longitude"
+                ],
+                "properties": {
+                  "userId": {
+                    "type": "string"
+                  },
+                  "latitude": {
+                    "type": "string"
+                  },
+                  "longitude": {
+                    "type": "string"
+                  }
+                }
+              }
+            },
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "userId",
+                  "latitude",
+                  "longitude"
+                ],
+                "properties": {
+                  "userId": {
+                    "type": "string"
+                  },
+                  "latitude": {
+                    "type": "string"
+                  },
+                  "longitude": {
+                    "type": "string"
+                  }
+                }
+              }
+            },
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "userId",
+                  "latitude",
+                  "longitude"
+                ],
+                "properties": {
+                  "userId": {
+                    "type": "string"
+                  },
+                  "latitude": {
+                    "type": "string"
+                  },
+                  "longitude": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "operationId": "postApiV1Location"
+      }
+    },
+    "/api/v1/likes": {
+      "post": {
+        "tags": [
+          "Interactions"
+        ],
+        "summary": "Like a User",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "likerId",
+                  "likedId"
+                ],
+                "properties": {
+                  "likerId": {
+                    "type": "string"
+                  },
+                  "likedId": {
+                    "type": "string"
+                  },
+                  "superLike": {
+                    "type": "boolean"
+                  }
+                }
+              }
+            },
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "likerId",
+                  "likedId"
+                ],
+                "properties": {
+                  "likerId": {
+                    "type": "string"
+                  },
+                  "likedId": {
+                    "type": "string"
+                  },
+                  "superLike": {
+                    "type": "boolean"
+                  }
+                }
+              }
+            },
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "likerId",
+                  "likedId"
+                ],
+                "properties": {
+                  "likerId": {
+                    "type": "string"
+                  },
+                  "likedId": {
+                    "type": "string"
+                  },
+                  "superLike": {
+                    "type": "boolean"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Response for status 201",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "description": "Response for status 400",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "402": {
+            "description": "Response for status 402",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Response for status 404",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Response for status 429",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "error",
+                    "resetTime"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "resetTime": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "operationId": "postApiV1Likes"
+      }
+    },
+    "/api/v1/likes/{userId}": {
+      "get": {
+        "tags": [
+          "Interactions"
+        ],
+        "summary": "Get Users the Current User Liked",
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Response for status 200",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": [
+                      "likedAt",
+                      "superLike",
+                      "images",
+                      "user"
+                    ],
+                    "properties": {
+                      "likedId": {
+                        "type": "string"
+                      },
+                      "userId": {
+                        "type": "string"
+                      },
+                      "likedAt": {
+                        "anyOf": [
+                          {
+                            "anyOf": [
+                              {
+                                "type": "Date"
+                              },
+                              {
+                                "format": "date-time",
+                                "type": "string"
+                              },
+                              {
+                                "format": "date",
+                                "type": "string"
+                              },
+                              {
+                                "type": "number"
+                              }
+                            ]
+                          },
+                          {
+                            "type": "string"
+                          }
+                        ]
+                      },
+                      "superLike": {
+                        "type": "boolean"
+                      },
+                      "images": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      },
+                      "user": {
+                        "nullable": true,
+                        "anyOf": [
+                          {
+                            "type": "object",
+                            "required": [
+                              "id",
+                              "name",
+                              "email",
+                              "age"
+                            ],
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "name": {
+                                "nullable": true,
+                                "anyOf": [
+                                  {
+                                    "type": "string"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "email": {
+                                "nullable": true,
+                                "anyOf": [
+                                  {
+                                    "type": "string"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "age": {
+                                "nullable": true,
+                                "anyOf": [
+                                  {
+                                    "type": "number"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              }
+                            }
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Response for status 500",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "operationId": "getApiV1LikesByUserId"
+      }
+    },
+    "/api/v1/likes/received/{userId}": {
+      "get": {
+        "tags": [
+          "Interactions"
+        ],
+        "summary": "Get Users Who Liked the Current User",
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Response for status 200",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": [
+                      "likedAt",
+                      "superLike",
+                      "images",
+                      "user"
+                    ],
+                    "properties": {
+                      "likedId": {
+                        "type": "string"
+                      },
+                      "userId": {
+                        "type": "string"
+                      },
+                      "likedAt": {
+                        "anyOf": [
+                          {
+                            "anyOf": [
+                              {
+                                "type": "Date"
+                              },
+                              {
+                                "format": "date-time",
+                                "type": "string"
+                              },
+                              {
+                                "format": "date",
+                                "type": "string"
+                              },
+                              {
+                                "type": "number"
+                              }
+                            ]
+                          },
+                          {
+                            "type": "string"
+                          }
+                        ]
+                      },
+                      "superLike": {
+                        "type": "boolean"
+                      },
+                      "images": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      },
+                      "user": {
+                        "nullable": true,
+                        "anyOf": [
+                          {
+                            "type": "object",
+                            "required": [
+                              "id",
+                              "name",
+                              "email",
+                              "age"
+                            ],
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "name": {
+                                "nullable": true,
+                                "anyOf": [
+                                  {
+                                    "type": "string"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "email": {
+                                "nullable": true,
+                                "anyOf": [
+                                  {
+                                    "type": "string"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "age": {
+                                "nullable": true,
+                                "anyOf": [
+                                  {
+                                    "type": "number"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              }
+                            }
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Response for status 500",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "operationId": "getApiV1LikesReceivedByUserId"
+      }
+    },
+    "/api/v1/dislikes": {
+      "post": {
+        "tags": [
+          "Interactions"
+        ],
+        "summary": "Dislike a User",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "dislikerId",
+                  "dislikedId"
+                ],
+                "properties": {
+                  "dislikerId": {
+                    "type": "string"
+                  },
+                  "dislikedId": {
+                    "type": "string"
+                  }
+                }
+              }
+            },
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "dislikerId",
+                  "dislikedId"
+                ],
+                "properties": {
+                  "dislikerId": {
+                    "type": "string"
+                  },
+                  "dislikedId": {
+                    "type": "string"
+                  }
+                }
+              }
+            },
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "dislikerId",
+                  "dislikedId"
+                ],
+                "properties": {
+                  "dislikerId": {
+                    "type": "string"
+                  },
+                  "dislikedId": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Response for status 201",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "description": "Response for status 400",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Response for status 404",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Response for status 429",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "error",
+                    "resetTime"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "resetTime": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "operationId": "postApiV1Dislikes"
+      }
+    },
+    "/api/v1/dislikes/rewind": {
+      "post": {
+        "tags": [
+          "Interactions"
+        ],
+        "summary": "Rewind (Undo) a Dislike",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "userId",
+                  "dislikedId"
+                ],
+                "properties": {
+                  "userId": {
+                    "type": "string"
+                  },
+                  "dislikedId": {
+                    "type": "string"
+                  }
+                }
+              }
+            },
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "userId",
+                  "dislikedId"
+                ],
+                "properties": {
+                  "userId": {
+                    "type": "string"
+                  },
+                  "dislikedId": {
+                    "type": "string"
+                  }
+                }
+              }
+            },
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "userId",
+                  "dislikedId"
+                ],
+                "properties": {
+                  "userId": {
+                    "type": "string"
+                  },
+                  "dislikedId": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Response for status 200",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "message",
+                    "recallsRemaining"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "recallsRemaining": {
+                      "type": "number"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Response for status 400",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "402": {
+            "description": "Response for status 402",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Response for status 404",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "operationId": "postApiV1DislikesRewind"
+      }
+    },
+    "/api/v1/block/": {
+      "post": {
+        "tags": [
+          "Safety"
+        ],
+        "summary": "Block a User",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "blockerId",
+                  "blockedId"
+                ],
+                "properties": {
+                  "blockerId": {
+                    "type": "string"
+                  },
+                  "blockedId": {
+                    "type": "string"
+                  }
+                }
+              }
+            },
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "blockerId",
+                  "blockedId"
+                ],
+                "properties": {
+                  "blockerId": {
+                    "type": "string"
+                  },
+                  "blockedId": {
+                    "type": "string"
+                  }
+                }
+              }
+            },
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "blockerId",
+                  "blockedId"
+                ],
+                "properties": {
+                  "blockerId": {
+                    "type": "string"
+                  },
+                  "blockedId": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "operationId": "postApiV1Block"
+      }
+    },
+    "/api/v1/boost/{userId}": {
+      "post": {
+        "tags": [
+          "Premium"
+        ],
+        "summary": "Apply 24h Visibility Boost",
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "operationId": "postApiV1BoostByUserId"
+      }
+    },
+    "/api/v1/favorites/": {
+      "post": {
+        "tags": [
+          "Social"
+        ],
+        "summary": "Add to favorites",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "userId",
+                  "favoriteUserId"
+                ],
+                "properties": {
+                  "userId": {
+                    "type": "string"
+                  },
+                  "favoriteUserId": {
+                    "type": "string"
+                  }
+                }
+              }
+            },
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "userId",
+                  "favoriteUserId"
+                ],
+                "properties": {
+                  "userId": {
+                    "type": "string"
+                  },
+                  "favoriteUserId": {
+                    "type": "string"
+                  }
+                }
+              }
+            },
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "userId",
+                  "favoriteUserId"
+                ],
+                "properties": {
+                  "userId": {
+                    "type": "string"
+                  },
+                  "favoriteUserId": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "operationId": "postApiV1Favorites"
+      }
+    },
+    "/api/v1/favorites/{userId}": {
+      "get": {
+        "tags": [
+          "Social"
+        ],
+        "summary": "Get user favorites",
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "operationId": "getApiV1FavoritesByUserId"
+      }
+    },
+    "/api/v1/favorites/{userId}/{favoriteUserId}": {
+      "delete": {
+        "tags": [
+          "Social"
+        ],
+        "summary": "Remove from favorites",
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "favoriteUserId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "operationId": "deleteApiV1FavoritesByUserIdByFavoriteUserId"
+      }
+    },
+    "/api/v1/stream/token": {
+      "post": {
+        "tags": [
+          "Chat"
+        ],
+        "summary": "Get Stream.io token",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "userId"
+                ],
+                "properties": {
+                  "userId": {
+                    "type": "string"
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "image": {
+                    "type": "string"
+                  },
+                  "email": {
+                    "type": "string"
+                  }
+                }
+              }
+            },
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "userId"
+                ],
+                "properties": {
+                  "userId": {
+                    "type": "string"
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "image": {
+                    "type": "string"
+                  },
+                  "email": {
+                    "type": "string"
+                  }
+                }
+              }
+            },
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "userId"
+                ],
+                "properties": {
+                  "userId": {
+                    "type": "string"
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "image": {
+                    "type": "string"
+                  },
+                  "email": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "operationId": "postApiV1StreamToken"
+      }
+    },
+    "/api/v1/stream/call": {
+      "post": {
+        "tags": [
+          "Chat"
+        ],
+        "summary": "Setup call context",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "callId"
+                ],
+                "properties": {
+                  "callId": {
+                    "type": "string"
+                  },
+                  "type": {
+                    "type": "string"
+                  }
+                }
+              }
+            },
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "callId"
+                ],
+                "properties": {
+                  "callId": {
+                    "type": "string"
+                  },
+                  "type": {
+                    "type": "string"
+                  }
+                }
+              }
+            },
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "callId"
+                ],
+                "properties": {
+                  "callId": {
+                    "type": "string"
+                  },
+                  "type": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "operationId": "postApiV1StreamCall"
+      }
+    },
+    "/api/v1/report": {
+      "post": {
+        "tags": [
+          "Safety"
+        ],
+        "summary": "Report a user",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "reporterId",
+                  "reportedId",
+                  "reason"
+                ],
+                "properties": {
+                  "reporterId": {
+                    "type": "string"
+                  },
+                  "reportedId": {
+                    "type": "string"
+                  },
+                  "reason": {
+                    "type": "string"
+                  },
+                  "details": {
+                    "type": "string"
+                  }
+                }
+              }
+            },
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "reporterId",
+                  "reportedId",
+                  "reason"
+                ],
+                "properties": {
+                  "reporterId": {
+                    "type": "string"
+                  },
+                  "reportedId": {
+                    "type": "string"
+                  },
+                  "reason": {
+                    "type": "string"
+                  },
+                  "details": {
+                    "type": "string"
+                  }
+                }
+              }
+            },
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "reporterId",
+                  "reportedId",
+                  "reason"
+                ],
+                "properties": {
+                  "reporterId": {
+                    "type": "string"
+                  },
+                  "reportedId": {
+                    "type": "string"
+                  },
+                  "reason": {
+                    "type": "string"
+                  },
+                  "details": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "operationId": "postApiV1Report"
+      }
+    },
+    "/api/v1/reports": {
+      "get": {
+        "tags": [
+          "Admin"
+        ],
+        "summary": "Get all reports",
+        "operationId": "getApiV1Reports"
+      }
+    },
+    "/api/v1/report/{id}": {
+      "patch": {
+        "tags": [
+          "Admin"
+        ],
+        "summary": "Update report status",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "status"
+                ],
+                "properties": {
+                  "status": {
+                    "type": "string"
+                  }
+                }
+              }
+            },
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "status"
+                ],
+                "properties": {
+                  "status": {
+                    "type": "string"
+                  }
+                }
+              }
+            },
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "status"
+                ],
+                "properties": {
+                  "status": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "operationId": "patchApiV1ReportById"
+      }
+    },
+    "/api/v1/roulette/start": {
+      "post": {
+        "tags": [
+          "Roulette"
+        ],
+        "summary": "Start or find video roulette match",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "userId"
+                ],
+                "properties": {
+                  "userId": {
+                    "type": "string"
+                  },
+                  "genderPreference": {
+                    "type": "string"
+                  }
+                }
+              }
+            },
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "userId"
+                ],
+                "properties": {
+                  "userId": {
+                    "type": "string"
+                  },
+                  "genderPreference": {
+                    "type": "string"
+                  }
+                }
+              }
+            },
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "userId"
+                ],
+                "properties": {
+                  "userId": {
+                    "type": "string"
+                  },
+                  "genderPreference": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "operationId": "postApiV1RouletteStart"
+      }
+    },
+    "/api/v1/roulette/details/{userId}": {
+      "get": {
+        "tags": [
+          "Roulette"
+        ],
+        "summary": "Get roulette details for a user",
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "operationId": "getApiV1RouletteDetailsByUserId"
+      }
+    },
+    "/api/v1/roulette/end": {
+      "post": {
+        "tags": [
+          "Roulette"
+        ],
+        "summary": "End roulette match manually",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "matchId": {
+                    "type": "string"
+                  },
+                  "userId": {
+                    "type": "string"
+                  }
+                }
+              }
+            },
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "matchId": {
+                    "type": "string"
+                  },
+                  "userId": {
+                    "type": "string"
+                  }
+                }
+              }
+            },
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "matchId": {
+                    "type": "string"
+                  },
+                  "userId": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "operationId": "postApiV1RouletteEnd"
+      }
+    },
+    "/api/v1/roulette/status/{userId}": {
+      "get": {
+        "tags": [
+          "Roulette"
+        ],
+        "summary": "Get session status with enhanced details",
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "operationId": "getApiV1RouletteStatusByUserId"
+      }
+    },
+    "/api/v1/roulette/cancel": {
+      "post": {
+        "tags": [
+          "Roulette"
+        ],
+        "summary": "Cancel roulette search or current match",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "userId"
+                ],
+                "properties": {
+                  "userId": {
+                    "type": "string"
+                  }
+                }
+              }
+            },
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "userId"
+                ],
+                "properties": {
+                  "userId": {
+                    "type": "string"
+                  }
+                }
+              }
+            },
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "userId"
+                ],
+                "properties": {
+                  "userId": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "operationId": "postApiV1RouletteCancel"
+      }
+    },
+    "/api/v1/roulette/history/{userId}": {
+      "get": {
+        "tags": [
+          "Roulette"
+        ],
+        "summary": "Get match history",
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "operationId": "getApiV1RouletteHistoryByUserId"
+      }
+    },
+    "/api/v1/roulette/cleanup": {
+      "post": {
+        "tags": [
+          "Roulette"
+        ],
+        "summary": "Cleanup expired matches",
+        "operationId": "postApiV1RouletteCleanup"
+      }
+    },
+    "/api/v1/roulette/stats": {
+      "get": {
+        "tags": [
+          "Roulette"
+        ],
+        "summary": "Get analytics and statistics for roulette system",
+        "operationId": "getApiV1RouletteStats"
+      }
+    },
+    "/api/v1/get-help/": {
+      "get": {
+        "tags": [
+          "Support"
+        ],
+        "operationId": "getApiV1Get-help"
+      },
+      "post": {
+        "tags": [
+          "Support"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "email",
+                  "message"
+                ],
+                "properties": {
+                  "email": {
+                    "format": "email",
+                    "type": "string"
+                  },
+                  "message": {
+                    "type": "string"
+                  },
+                  "screenshot": {
+                    "nullable": true,
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                }
+              }
+            },
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "email",
+                  "message"
+                ],
+                "properties": {
+                  "email": {
+                    "format": "email",
+                    "type": "string"
+                  },
+                  "message": {
+                    "type": "string"
+                  },
+                  "screenshot": {
+                    "nullable": true,
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                }
+              }
+            },
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "email",
+                  "message"
+                ],
+                "properties": {
+                  "email": {
+                    "format": "email",
+                    "type": "string"
+                  },
+                  "message": {
+                    "type": "string"
+                  },
+                  "screenshot": {
+                    "nullable": true,
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "operationId": "postApiV1Get-help"
+      }
+    },
+    "/api/v1/interests": {
+      "get": {
+        "tags": [
+          "Metadata"
+        ],
+        "summary": "Get cached interests list",
+        "operationId": "getApiV1Interests"
+      }
+    }
+  },
+  "components": {
+    "schemas": {}
+  }
+}

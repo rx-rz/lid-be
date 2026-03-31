@@ -18,12 +18,12 @@ import { rouletteRoutes } from "./api/roulette/roulette.routes";
 import { errorMiddleware } from "./middleware/error";
 import { paymentRoutes } from "./api/payment/payment.routes";
 import { interactionRoutes } from "./api/interaction/interaction.routes";
+import { cleanupExpiredBoostsCron } from "./cron/cleanup-expired-boosts";
+import swaggerJson from "./lid-api.json";
 
 const app = new Elysia({ prefix: "/api/v1" })
   .use(
     openapi({
-      references: fromTypes(),
-
       scalar: {
         theme: "moon",
       },
@@ -53,7 +53,11 @@ const app = new Elysia({ prefix: "/api/v1" })
   .use(rouletteRoutes)
   .use(helpRoutes)
   .use(interestRoutes)
-  .listen(8000);
+  .get("/swagger.json", () => swaggerJson);
+
+cleanupExpiredBoostsCron();
+
+app.listen(8000);
 
 console.log(
   `🦊 Elysia is running at ${app.server?.hostname}:${app.server?.port}`,

@@ -4,7 +4,7 @@ import { userRepo } from "../../repo/user.repo";
 import { fcmAdmin } from "../../services/fcm";
 import { logger } from "../../utils/logger";
 import { getAge } from "../user/user.services";
-import type { SubscriptionTier } from "../../db/schema"; // NEW
+import type { SubscriptionTier } from "../../db/schema";
 import { TIER_PERMISSIONS } from "../../utils/permissions";
 import { premiumFeatureRepo } from "../../repo/premium.repo";
 
@@ -34,6 +34,49 @@ const formatUserWithAge = ({ user, ...rest }: any) => {
   };
 };
 
+export const sendLikeNotification = async (
+  targetFcmToken: string,
+  likerName: string,
+  isSuperLike: boolean,
+) => {
+  if (!targetFcmToken) return;
+
+  try {
+    await fcmAdmin.messaging().send({
+      notification: {
+        title: isSuperLike
+          ? `🌟 Super Like from ${likerName}!`
+          : `New Like 💖 from ${likerName}`,
+        body: `${likerName} just liked you! Open the app to check.`,
+      },
+      token: targetFcmToken,
+    });
+    logger.info(`Like push notification sent successfully`);
+  } catch (err) {
+    logger.error({ err }, "[Interaction] Error sending FCM like notification");
+  }
+};
+
+export const sendMatchNotification = async (
+  targetFcmToken: string,
+  partnerName: string,
+) => {
+  if (!targetFcmToken) return;
+
+  try {
+    await fcmAdmin.messaging().send({
+      notification: {
+        title: `It's a Match! 🎉`,
+        body: `You and ${partnerName} liked each other. Send a message!`,
+      },
+      token: targetFcmToken,
+    });
+    logger.info(`Match push notification sent successfully`);
+  } catch (err) {
+    logger.error({ err }, "[Interaction] Error sending FCM match notification");
+  }
+};
+
 export const interactionService = {
   likeUser: async (
     likerId: string,
@@ -57,7 +100,6 @@ export const interactionService = {
       throw new Error("Like already exists");
     }
 
-    // NEW: Handle Super Like deduction before creating the like
     if (superLike) {
       const updatedWallet = await premiumFeatureRepo.useSuperLike(likerId);
       if (!updatedWallet) {
@@ -70,25 +112,9 @@ export const interactionService = {
     const like = await interactionRepo.createLike(likerId, likedId, superLike);
     if (!like) throw new Error("Failed to create like");
 
-    const targetFcmToken = likedExists.fcmToken;
-    if (targetFcmToken) {
-      try {
-        await fcmAdmin.messaging().send({
-          notification: {
-            title: superLike
-              ? `🌟 Super Like from ${likerExists.displayName}!`
-              : `New Like 💖 from ${likerExists.displayName}`,
-            body: `${likerExists.displayName} just liked you! Open the app to check.`,
-          },
-          token: targetFcmToken,
-        });
-        logger.info(`Push notification sent to ${likedId}`);
-      } catch (err) {
-        logger.error({ err }, "[Interaction] Error sending FCM notification");
-      }
-    }
-
     const mutualLike = await interactionRepo.getExistingLike(likedId, likerId);
+
+    // Check for match first before sending any notifications
     if (mutualLike) {
       const encounter = await matchRepo.getRouletteEncounter(likerId, likedId);
 
@@ -98,6 +124,14 @@ export const interactionService = {
         const mutualLikeIsAfter = mutualLike.likedAt! >= encounterEnd;
 
         if (!currentLikeIsAfter || !mutualLikeIsAfter) {
+          // It's a regular like based on Roulette timing limits
+          if (likedExists.fcmToken) {
+            sendLikeNotification(
+              likedExists.fcmToken,
+              likerExists.displayName || "Someone",
+              superLike,
+            );
+          }
           return { like };
         }
       }
@@ -105,8 +139,29 @@ export const interactionService = {
       const newMatch = await matchRepo.createMatch(likerId, likedId);
       if (!newMatch) throw new Error("Failed to create match");
 
+      if (likedExists.fcmToken) {
+        sendMatchNotification(
+          likedExists.fcmToken,
+          likerExists.displayName || "Someone",
+        );
+      }
+      if (likerExists.fcmToken) {
+        sendMatchNotification(
+          likerExists.fcmToken,
+          likedExists.displayName || "Someone",
+        );
+      }
+
       logger.info({ likerId, likedId }, "It's a match!");
       return { like, match: newMatch };
+    }
+
+    if (likedExists.fcmToken) {
+      sendLikeNotification(
+        likedExists.fcmToken,
+        likerExists.displayName || "Someone",
+        superLike,
+      );
     }
 
     return { like };
@@ -161,9 +216,8 @@ export const interactionService = {
     const mutualLikes = await interactionRepo.getMutualLikes(userId);
     return mutualLikes.map(formatUserWithAge);
   },
-  // Add this inside interactionService
+
   rewindDislike: async (dislikerId: string, dislikedId: string) => {
-    // 1. Verify the dislike actually exists
     const existingDislike = await interactionRepo.getExistingDislike(
       dislikerId,
       dislikedId,
@@ -173,14 +227,11 @@ export const interactionService = {
       throw new Error("Dislike not found or already rewound");
     }
 
-    // 2. Attempt to deduct a Recall from the wallet
-    // If they have 0, the repo returns undefined and we throw the payment error
     const updatedWallet = await premiumFeatureRepo.useRecall(dislikerId);
     if (!updatedWallet) {
       throw new Error("INSUFFICIENT_RECALLS");
     }
 
-    // 3. Delete the dislike to return the user to the matching pool
     await interactionRepo.deleteDislike(dislikerId, dislikedId);
 
     logger.info(

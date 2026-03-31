@@ -1,43 +1,84 @@
-
 import { premiumFeatureRepo } from "../../repo/premium.repo";
+import { userRepo } from "../../repo/user.repo";
+import { fcmAdmin } from "../../services/fcm";
 import { cacheUtils } from "../../utils/cache.utils";
 import { logger } from "../../utils/logger";
 
+const sendBoostStartedNotification = async (targetFcmToken: string) => {
+  if (!targetFcmToken) return;
+  try {
+    await fcmAdmin.messaging().send({
+      notification: {
+        title: "Takeoff Boost Activated! 🚀",
+        body: "Your profile is now being prioritized in discovery for the next 30 minutes.",
+      },
+      token: targetFcmToken,
+    });
+  } catch (err) {
+    logger.error({ err }, "[Premium] Error sending boost started notification");
+  }
+};
+
+const sendBoostEndedNotification = async (targetFcmToken: string) => {
+  if (!targetFcmToken) return;
+  try {
+    await fcmAdmin.messaging().send({
+      notification: {
+        title: "Boost Complete 🛬",
+        body: "Your 30-minute Takeoff Boost has ended. Check your matches!",
+      },
+      token: targetFcmToken,
+    });
+  } catch (err) {
+    logger.error({ err }, "[Premium] Error sending boost ended notification");
+  }
+};
+
 export const premiumService = {
-  // NEW: Safely deducts a boost from the wallet
   boostUser: async (userId: string) => {
-    // Check wallet and deduct atomically (defaults to 30 mins)
+
     const updatedWallet = await premiumFeatureRepo.useBoost(userId, 30);
-    
-    // If the repo returns undefined, it means the `gt(boostsRemaining, 0)` check failed
+
     if (!updatedWallet) {
       throw new Error("INSUFFICIENT_BOOSTS");
     }
 
-    logger.info(`[Premium] User ${userId} activated Takeoff Boost. ${updatedWallet.boostsRemaining} remaining.`);
-    
-    // Clear their cache so they show up higher in discovery feeds immediately
+    logger.info(
+      `[Premium] User ${userId} activated Takeoff Boost. ${updatedWallet.boostsRemaining} remaining.`,
+    );
+
     await cacheUtils.invalidateUserDiscoveryCache(userId);
-    
+
+    userRepo
+      .getUserById(userId)
+      .then((user) => {
+        if (user?.fcmToken) {
+          sendBoostStartedNotification(user.fcmToken);
+        }
+      })
+      .catch((err) =>
+        logger.error(
+          { err },
+          "[Premium] Failed to fetch user for boost notification",
+        ),
+      );
+
     return updatedWallet;
   },
 
   getBoostMultiplier: async (userId: string): Promise<number> => {
-    // Updated to use the new repo method name
     const premium = await premiumFeatureRepo.getFeaturesByUserId(userId);
-    
+
     if (!premium || !premium.visibilityBoost) return 1;
-    
-    // If the boost expired, return normal multiplier
     if (premium.expiresAt && new Date(premium.expiresAt) < new Date()) {
       return 1;
     }
 
     let multiplier = 3;
-    // Extra boost power if they used it recently (within 24hrs)
     if (
       premium.lastBoostedAt &&
-      new Date(premium.lastBoostedAt) > new Date(Date.now() - 24 * 60 * 60 * 1000)
+      new Date(premium.lastBoostedAt) >
+        new Date(Date.now() - 24 * 60 * 60 * 1000)
     ) {
       multiplier = 4;
     }
@@ -50,7 +91,6 @@ export const premiumService = {
   ): Promise<Record<string, number>> => {
     if (!userIds.length) return {};
 
-    // Updated to use the batch repo method
     const statuses = await premiumFeatureRepo.getFeaturesByUserIds(userIds);
 
     const now = new Date();
@@ -80,7 +120,6 @@ export const premiumService = {
       multipliersMap[premium.userId] = multiplier;
     }
 
-    // Fill in default 1x for any users who didn't have a record
     for (const id of userIds) {
       if (!(id in multipliersMap)) {
         multipliersMap[id] = 1;
@@ -88,5 +127,28 @@ export const premiumService = {
     }
 
     return multipliersMap;
+  },
+
+  cleanupExpiredBoosts: async () => {
+    try {
+      const expiredUsers = await premiumFeatureRepo.deactivateExpiredBoosts();
+
+      if (expiredUsers.length > 0) {
+        logger.info(
+          `[Premium] Deactivated expired boosts for ${expiredUsers.length} users.`,
+        );
+        await Promise.all(
+          expiredUsers.map(async (u) => {
+            await cacheUtils.invalidateUserDiscoveryCache(u.userId);
+            const user = await userRepo.getUserById(u.userId);
+            if (user?.fcmToken) {
+              await sendBoostEndedNotification(user.fcmToken);
+            }
+          }),
+        );
+      }
+    } catch (error) {
+      logger.error({ error }, "[Premium] Error cleaning up expired boosts");
+    }
   },
 };

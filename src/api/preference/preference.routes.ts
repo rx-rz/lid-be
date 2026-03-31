@@ -6,6 +6,7 @@ const PreferenceSchema = t.Object({
   interests: t.Optional(t.Array(t.String())),
   lookingToDate: t.Optional(t.Array(t.String())),
   ethnicity: t.Optional(t.Array(t.String())),
+  language: t.Optional(t.Array(t.String())),
   pronouns: t.Optional(t.String()),
   zodiac: t.Optional(t.String()),
   bio: t.Optional(t.String()),
@@ -17,7 +18,7 @@ const PreferenceSchema = t.Object({
   pets: t.Optional(t.String()),
   age: t.Optional(t.String()),
   distance: t.Optional(t.String()),
-  language: t.Optional(t.Array(t.String())),
+
   familyPlans: t.Optional(t.String()),
   gender: t.Optional(t.String()),
   height: t.Optional(t.String()),
