@@ -57,7 +57,7 @@ const app = new Elysia({ prefix: "/api/v1" })
   .use(interestRoutes)
   .get("/swagger.json", () => swaggerJson);
 
-cleanupExpiredBoostsCron();
+// cleanupExpiredBoostsCron();
 
 app.listen(8000);
 
