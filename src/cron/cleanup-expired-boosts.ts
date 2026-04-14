@@ -3,7 +3,7 @@ import { premiumService } from "../api/premium/premium.services";
 import { logger } from "../utils/logger";
 
 export const cleanupExpiredBoostsCron = () => {
-  cron.schedule("15 3 * * *", async () => {
+  cron.schedule("15 4 * * *", async () => {
     try {
       await premiumService.cleanupExpiredBoosts();
     } catch (err) {
