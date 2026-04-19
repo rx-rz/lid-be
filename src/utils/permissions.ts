@@ -25,7 +25,7 @@ export const TIER_PERMISSIONS: Record<SubscriptionTier, AppFeatures> = {
     hasAdvancedFilters: false,
     myLikesLimit: false,
   },
-  "premium-economy": {
+  premium: {
     dailySwipes: "unlimited",
     hasUndo: true,
     canSeeWhoLikedMe: true,
@@ -44,7 +44,7 @@ export const TIER_PERMISSIONS: Record<SubscriptionTier, AppFeatures> = {
     boostsPerWeek: 3,
     loveLettersPerWeek: 3,
     videoCalls: "unlimited",
-    hasAdvancedFilters: true, // "All" filters unlocked
+    hasAdvancedFilters: true, 
     myLikesLimit: 30,
   },
   weekender: {
