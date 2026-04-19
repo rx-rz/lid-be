@@ -16,8 +16,14 @@ type PlanDefinition = {
 
 const PLANS: PlanDefinition[] = [
   {
-    name: "Diaspora: Premium Economy",
-    tier: "premium-economy",
+    name: "Diaspora: Economy",
+    tier: "economy",
+    price: 0,
+    interval: "month",
+  },
+  {
+    name: "Diaspora: Premium",
+    tier: "premium",
     price: 1999,
     interval: "month",
   },
@@ -35,9 +41,45 @@ const PLANS: PlanDefinition[] = [
   },
 ];
 
+const clearOldPlans = async () => {
+  console.log("🧹 Archiving old active products and prices...");
+
+  try {
+    for await (const product of stripe.products.list({ active: true })) {
+      // 1. Unset the default price FIRST
+      // Passing an empty string ("") removes the default price in Stripe
+      if (product.default_price) {
+        await stripe.products.update(product.id, { default_price: "" });
+      }
+
+      // 2. Now we can safely archive all active prices associated with the product
+      for await (const price of stripe.prices.list({
+        product: product.id,
+        active: true,
+      })) {
+        await stripe.prices.update(price.id, { active: false });
+        console.log(`   ➖ Archived Price: ${price.id}`);
+      }
+
+      // 3. Archive the product itself
+      await stripe.products.update(product.id, { active: false });
+      console.log(`   📦 Archived Product: ${product.name} (${product.id})`);
+    }
+    console.log("✅ All old plans archived successfully.\n");
+  } catch (error: any) {
+    console.error("❌ Error archiving old plans:", error.message);
+    throw error;
+  }
+};
+
 const syncPlans = async () => {
   console.log("🚀 Starting Stripe Product Sync...");
 
+  // Step 1: Clear (Archive) old plans
+  await clearOldPlans();
+
+  // Step 2: Create new plans
+  console.log("🌱 Creating new plans...");
   for (const plan of PLANS) {
     try {
       const product = await stripe.products.create({
@@ -46,7 +88,6 @@ const syncPlans = async () => {
           tier: plan.tier,
         },
       });
-
 
       const price = await stripe.prices.create({
         product: product.id,
@@ -58,6 +99,11 @@ const syncPlans = async () => {
         nickname: plan.name,
       });
 
+      // Optional best practice: Set the newly created price as the default price for the product
+      await stripe.products.update(product.id, {
+        default_price: price.id,
+      });
+
       console.log(`✅ Created ${plan.name}`);
       console.log(`   Product ID: ${product.id}`);
       console.log(`   Price ID:   ${price.id}`);
@@ -67,7 +113,9 @@ const syncPlans = async () => {
     }
   }
 
-  console.log("✨ Sync complete. Update your .env or frontend with these Price IDs.");
+  console.log(
+    "✨ Sync complete. Update your .env or frontend with these Price IDs.",
+  );
 };
 
 syncPlans();

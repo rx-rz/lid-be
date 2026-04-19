@@ -21,7 +21,7 @@ const UserSchema = t.Object({
   subscriptionType: t.Optional(
     t.Union([
       t.Literal("economy"),
-      t.Literal("premium-economy"),
+      t.Literal("premium"),
       t.Literal("first-class"),
       t.Literal("weekender"),
     ]),
@@ -58,7 +58,7 @@ export const userRoutes = new Elysia({ name: "routes.user" })
         const data = await userService.createUserProfile(
           body.clerkId,
           body.phone,
-        );
+        ); 
         set.status = 201;
         return data;
       } catch (error: any) {
@@ -129,7 +129,7 @@ export const userRoutes = new Elysia({ name: "routes.user" })
         subscriptionType: t.Optional(
           t.Union([
             t.Literal("economy"),
-            t.Literal("premium-economy"),
+            t.Literal("premium"),
             t.Literal("first-class"),
             t.Literal("weekender"),
           ]),

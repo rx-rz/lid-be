@@ -13,7 +13,7 @@ type Gender = "MAN" | "WOMAN" | "NONBINARY";
 const GENDERS: Gender[] = ["MAN", "WOMAN", "NONBINARY"];
 const SUBSCRIPTIONS: SubscriptionTier[] = [
   "economy",
-  "premium-economy",
+  "premium",
   "first-class",
   "weekender",
 ];

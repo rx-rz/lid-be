@@ -11,7 +11,7 @@ export const runWeeklyAllowanceTopUp = async () => {
 
   // We only need to top up paid tiers. Economy doesn't get weekly drops.
   const paidTiers: SubscriptionTier[] = [
-    "premium-economy",
+    "premium",
     "first-class",
     "weekender",
   ];

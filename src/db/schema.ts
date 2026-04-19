@@ -37,7 +37,7 @@ export const subscriptionEnum = pgEnum("subscription_type", [
 
 export const subscriptionTierEnum = pgEnum("subscription_tier", [
   "economy",
-  "premium-economy",
+  "premium",
   "first-class",
   "weekender",
 ]);
@@ -52,7 +52,7 @@ export const paymentStatusEnum = pgEnum("payment_status", [
 
 export type SubscriptionTier =
   | "economy"
-  | "premium-economy"
+  | "premium"
   | "first-class"
   | "weekender";
 
