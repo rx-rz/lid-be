@@ -367,7 +367,7 @@ export const userRoutes = new Elysia({ name: "routes.user" })
         query.userId,
         {
           currentUserId: query.userId,
-          blockedUserIds: [], // Resolved in blockMiddleware previously
+          blockedUserIds: [], 
           cursor: query.cursor,
           limit: query.limit ? Number(query.limit) : undefined,
           activity: query.activity as "justJoined" | undefined,

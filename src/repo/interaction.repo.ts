@@ -144,7 +144,6 @@ export const interactionRepo = {
       .returning();
     return deleted;
   },
-  // NEW: Accepts dynamic limit
   checkAndIncrementSwipeLimit: async (
     userId: string,
     limit: number,

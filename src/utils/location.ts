@@ -7,12 +7,8 @@ const CACHE_TTL = 86400;
 const RESULTS_CACHE_TTL = 3600;
 const COUNTRY_CACHE_TTL = 604800;
 
-// --- O(1) OPTIMIZATIONS ---
-
-// 1. Hoist Intl instantiation. Doing this in a loop crushes CPU performance.
 const regionNames = new Intl.DisplayNames(["en"], { type: "region" });
 
-// 2. Convert O(N) array search to an O(1) Hash Map
 const flagEmojiMap = Object.values(countryIndex.countryFlagEmoji).reduce(
   (acc, curr) => {
     acc[curr.code] = curr.emoji;
@@ -21,7 +17,6 @@ const flagEmojiMap = Object.values(countryIndex.countryFlagEmoji).reduce(
   {} as Record<string, string>
 );
 
-// 3. Fast-path lookup: Use this when you already know the abbreviation (e.g., from DB)
 export function getCountryDetailsFromAbbr(
   countryCode: string
 ): { name: string; abrv: string; flag: string } {
@@ -32,8 +27,6 @@ export function getCountryDetailsFromAbbr(
     flag: flagEmojiMap[countryCode] ?? "🏳️",
   };
 }
-
-// --------------------------
 
 export function calculateDistance(
   lat1: number,
@@ -92,7 +85,6 @@ export function getCountryFromCoordinates(
   latitude: number,
   longitude: number,
 ): { name: string; abrv: string; flag: string } | null {
-  // We only run this heavy math if absolutely necessary
   const codes = coordinateToCountry(latitude, longitude, true);
   if (!codes?.length) return null;
 

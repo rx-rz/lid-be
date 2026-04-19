@@ -19,7 +19,6 @@ const SUBSCRIPTIONS: SubscriptionTier[] = [
 ];
 const BATCH_SIZE = 50;
 
-// Rich Seed Data Arrays
 const ZODIACS = [
   "Aries",
   "Taurus",

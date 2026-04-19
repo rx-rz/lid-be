@@ -114,7 +114,6 @@ export const interactionService = {
 
     const mutualLike = await interactionRepo.getExistingLike(likedId, likerId);
 
-    // Check for match first before sending any notifications
     if (mutualLike) {
       const encounter = await matchRepo.getRouletteEncounter(likerId, likedId);
 
@@ -124,7 +123,6 @@ export const interactionService = {
         const mutualLikeIsAfter = mutualLike.likedAt! >= encounterEnd;
 
         if (!currentLikeIsAfter || !mutualLikeIsAfter) {
-          // It's a regular like based on Roulette timing limits
           if (likedExists.fcmToken) {
             sendLikeNotification(
               likedExists.fcmToken,

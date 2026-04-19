@@ -1,14 +1,13 @@
-// types/permissions.ts
 import type { SubscriptionTier } from "../db/schema";
 
 export type AppFeatures = {
   dailySwipes: number | "unlimited";
   hasUndo: boolean;
-  canSeeWhoLikedMe: boolean; // Priority Aisle
+  canSeeWhoLikedMe: boolean; 
   superLikesPerWeek: number;
-  boostsPerWeek: number; // Takeoffs
+  boostsPerWeek: number;
   loveLettersPerWeek: number;
-  videoCalls: number | "unlimited"; // Cruise calls
+  videoCalls: number | "unlimited"; 
   hasAdvancedFilters: boolean;
   myLikesLimit: number | false;
 };
@@ -21,7 +20,7 @@ export const TIER_PERMISSIONS: Record<SubscriptionTier, AppFeatures> = {
     superLikesPerWeek: 0,
     boostsPerWeek: 0,
     loveLettersPerWeek: 0,
-    videoCalls: 2, // 2 free Cruise calls
+    videoCalls: 2, 
     hasAdvancedFilters: false,
     myLikesLimit: false,
   },

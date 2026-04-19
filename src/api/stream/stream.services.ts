@@ -30,7 +30,6 @@ export const streamService = {
       },
     ]);
 
-    // 10 years validity
     const validityInSeconds = 10 * 365 * 24 * 60 * 60;
 
     const token = client.generateUserToken({

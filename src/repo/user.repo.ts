@@ -91,7 +91,7 @@ export const userRepo = {
         birthday: true,
         onboardingPage: true,
         fcmToken: true,
-        subscriptionType: true, // <-- NEW: Grab it directly from the user record!
+        subscriptionType: true,
       },
       with: {
         images: {
@@ -100,18 +100,16 @@ export const userRepo = {
           },
           limit: 1,
         },
-        // REMOVED: No need to query payments table here anymore!
       },
     });
 
     if (!user) return undefined;
 
-    // Destructure out what we need to reshape
     const { images, subscriptionType, ...userData } = user;
 
     return {
       ...userData,
-      subscription: subscriptionType, // It's guaranteed to be 'economy' or higher
+      subscription: subscriptionType, 
       image: images?.[0]?.imageUrl ?? null,
     };
   },
@@ -351,7 +349,6 @@ export const userRepo = {
 
     const allUsersToReturn = [...superLikedUsers, ...normalUsersToReturn];
 
-    // Fetch images in bulk to avoid flat-join group-by explosion
     const returnedUserIds = allUsersToReturn.map((u) => u.user.id);
     let imagesMap: Record<string, SelectImage[]> = {};
 

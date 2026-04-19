@@ -149,7 +149,7 @@ export const interactionRoutes = new Elysia({ name: "routes.interaction" })
       },
       detail: { tags: ["Interactions"], summary: "Dislike a User" },
     },
-  ) // Add this chain to your interactionRoutes in interaction.routes.ts
+  ) 
   .post(
     "/dislikes/rewind",
     async ({ body, set }) => {

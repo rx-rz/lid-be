@@ -11,7 +11,6 @@ export const blockService = {
 
     const block = await blockRepo.createBlock(blockerId, blockedId);
 
-    // Invalidate discovery cache so the blocked user disappears immediately
     await cacheUtils.invalidateUserDiscoveryCache(blockerId);
 
     return block;

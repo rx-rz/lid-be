@@ -3,7 +3,7 @@ import { paymentRepo } from "../repo/payment.repo";
 import { logger } from "../utils/logger";
 import { userRepo } from "../repo/user.repo";
 import type { SubscriptionTier } from "../db/schema";
-import { sql } from "drizzle-orm"; // Needed for add-on math
+import { sql } from "drizzle-orm"; 
 import { premiumFeatureRepo } from "../repo/premium.repo";
 import { TIER_PERMISSIONS } from "../utils/permissions";
 
@@ -83,7 +83,6 @@ export const stripeService = {
         logger.info("[Stripe] Payment intent succeeded");
         break;
 
-      // --- SUBSCRIPTIONS (RECURRING) ---
       case "invoice.payment_succeeded": {
         const invoice = event.data.object as Stripe.Invoice;
         const subscriptionId = invoice.subscription as string;
@@ -99,7 +98,6 @@ export const stripeService = {
         const subscriptionTier =
           (product.metadata.tier as SubscriptionTier) || "economy";
 
-        // 1. Update Payment Status
         await paymentRepo.updateStatusByCustomerId(customerId, {
           paymentStatus: "active",
           nextBillingDate: new Date(subscription.current_period_end * 1000),
@@ -111,13 +109,10 @@ export const stripeService = {
           await paymentRepo.getCustomerByStripeId(customerId);
 
         if (paymentRecord?.userId) {
-          // 2. Update User Profile Status
           await userRepo.updateUser(paymentRecord.userId, {
             subscriptionType: subscriptionTier,
           });
 
-          // 3. NEW: The Allowance Drop
-          // When they pay, reset their wallet to the tier's weekly limits
           const limits = TIER_PERMISSIONS[subscriptionTier];
           await premiumFeatureRepo.upsertFeatures(paymentRecord.userId, {
             superlikesRemaining: limits.superLikesPerWeek,
@@ -134,18 +129,15 @@ export const stripeService = {
         break;
       }
 
-      // --- ADD-ON PACKS (ONE-TIME PURCHASES) ---
       case "checkout.session.completed": {
         const session = event.data.object as Stripe.Checkout.Session;
 
-        // Only process one-time payments here (subscriptions are handled by invoice.payment_succeeded)
-        if (session.mode === "payment" && session.payment_status === "paid") {
+    if (session.mode === "payment" && session.payment_status === "paid") {
           const userId = session.metadata?.userId;
-          const packType = session.metadata?.packType; // e.g., 'super_likes'
-          const quantity = Number(session.metadata?.quantity || 0); // e.g., 5
+          const packType = session.metadata?.packType; 
+          const quantity = Number(session.metadata?.quantity || 0); 
 
           if (userId && packType && quantity > 0) {
-            // Top up the specific consumable
             if (packType === "super_likes") {
               await premiumFeatureRepo.upsertFeatures(userId, {
                 superlikesRemaining:
@@ -182,7 +174,6 @@ export const stripeService = {
         const subscription = event.data.object as Stripe.Subscription;
         const customerId = subscription.customer as string;
 
-        // Fetch the expanded product data to get the tier metadata
         const expandedSub = await stripe.subscriptions.retrieve(
           subscription.id,
           { expand: ["items.data.price.product"] },
@@ -192,8 +183,7 @@ export const stripeService = {
         const product = lineItem.price.product as Stripe.Product;
         const subscriptionTier =
           (product.metadata.tier as SubscriptionTier) || "economy";
-
-        // Map Stripe statuses to your DB statuses
+          
         let paymentStatus: any = "active";
         if (subscription.status === "past_due") paymentStatus = "past_due";
         if (
@@ -232,14 +222,12 @@ export const stripeService = {
         const deletedSubscription = event.data.object as Stripe.Subscription;
         const deletedCustomerId = deletedSubscription.customer as string;
 
-        // Downgrade payment record
         await paymentRepo.updateStatusByCustomerId(deletedCustomerId, {
           paymentStatus: "inactive",
           subscriptionType: "economy",
           lastUpdated: new Date(),
         });
 
-        // NEW: Downgrade user record so they lose access immediately
         const paymentRecord =
           await paymentRepo.getCustomerByStripeId(deletedCustomerId);
         if (paymentRecord?.userId) {

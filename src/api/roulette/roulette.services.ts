@@ -294,7 +294,6 @@ export const rouletteService = {
       };
     }
 
-    // Compute status message directly for the return object
     let statusMessage = `Session status: ${session.status}`;
     if (session.status === "waiting")
       statusMessage = "Looking for a match. Please wait...";

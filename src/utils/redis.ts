@@ -53,7 +53,6 @@ export const redisClient: RedisClientWrapper = {
     ttlInSeconds: number,
   ): Promise<void> => {
     try {
-      // 'ex' stands for expiration in seconds
       await getRedis().set(key, value, { ex: ttlInSeconds });
     } catch (error) {
       logger.error({ err: error, key }, `[Redis] SetWithTtl Error`);

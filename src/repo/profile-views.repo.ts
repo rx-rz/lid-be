@@ -54,6 +54,6 @@ export const profileViewsRepo = {
     const result = await db
       .delete(profileViewsTable)
       .where(lt(profileViewsTable.viewedAt, targetDate));
-    return result; // Depending on DB driver, you might need to extract rowCount differently
+    return result; 
   }
 };

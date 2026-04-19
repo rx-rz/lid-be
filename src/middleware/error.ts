@@ -43,7 +43,6 @@ export const errorMiddleware = new Elysia({ name: 'ErrorMiddleware' })
             };
         }
 
-        // 2. Handle Trusted Operational Errors (AppError)
         if (code === 'APP_ERROR') {
             const appErr = error as AppError;
             set.status = appErr.statusCode;

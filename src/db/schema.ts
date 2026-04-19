@@ -101,12 +101,9 @@ export const usersTable = pgTable(
     index("email_idx").on(table.email),
     index("login_idx").on(table.lastLogin.desc()),
     index("displayName_idx").on(table.displayName),
-    // REMOVED redundant id_idx
     index("active_users_idx").on(table.lastLogin.desc(), table.verified),
     index("subscription_idx").on(table.subscriptionType, table.verified),
     index("demographic_idx").on(table.gender, table.birthday),
-
-    // NEW: Eliminates sorting overhead for cursor pagination
     index("cursor_pagination_idx").on(table.createdAt.desc(), table.id.desc()),
   ],
 );
@@ -278,7 +275,6 @@ export const locationsTable = pgTable(
   },
   (table) => [
     uniqueIndex("unique_location_idx").on(table.userId),
-    // NEW: Speeds up the country filter
     index("country_idx").on(table.countryAbbreviation),
   ],
 );

@@ -14,15 +14,12 @@ export const preferenceService = {
       }
       return preference;
     } catch (err: any) {
-      // 23503 is the Postgres code for a Foreign Key Violation
-      // This means the userId doesn't exist in the users table yet
       if (err.code === "23503") {
         throw new NotFoundError(
           "Cannot create preferences: User does not exist.",
         );
       }
 
-      // If we already threw an Elysia error inside the try block, let it bubble up
       if (err instanceof InternalServerError || err instanceof NotFoundError) {
         throw err;
       }
@@ -39,7 +36,6 @@ export const preferenceService = {
       userId,
     );
 
-    // 1. Guard check: Ensure the record actually exists before trying to merge
     if (!existingPreference) {
       throw new NotFoundError(`Preferences for user ${userId} not found.`);
     }
@@ -56,7 +52,6 @@ export const preferenceService = {
       mergedData,
     );
 
-    // 2. Guard check: Ensure the database actually returned the updated row
     if (!updatedPreference) {
       throw new InternalServerError("Failed to update user preferences.");
     }
@@ -67,7 +62,6 @@ export const preferenceService = {
   get: async (userId: string) => {
     const preference = await preferenceRepo.getPreferenceByUserId(userId);
 
-    // Guard check: Throw a clean 404 if no preferences exist for this user yet
     if (!preference) {
       throw new NotFoundError(`Preferences for user ${userId} not found.`);
     }

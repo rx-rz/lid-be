@@ -72,7 +72,6 @@ export const profileViewsRoutes = new Elysia({ prefix: "/profile-views" })
     async ({ set }) => {
       try {
         const result = await profileViewsService.clearOldViews();
-        // Return rowCount or standard success depending on the Drizzle driver output
         return { deletedCount: result?.rowCount || 0, success: true };
       } catch (error: any) {
         set.status = 500;
