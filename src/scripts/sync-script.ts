@@ -75,10 +75,8 @@ const clearOldPlans = async () => {
 const syncPlans = async () => {
   console.log("🚀 Starting Stripe Product Sync...");
 
-  // Step 1: Clear (Archive) old plans
   await clearOldPlans();
 
-  // Step 2: Create new plans
   console.log("🌱 Creating new plans...");
   for (const plan of PLANS) {
     try {
@@ -99,8 +97,7 @@ const syncPlans = async () => {
         nickname: plan.name,
       });
 
-      // Optional best practice: Set the newly created price as the default price for the product
-      await stripe.products.update(product.id, {
+     await stripe.products.update(product.id, {
         default_price: price.id,
       });
 
