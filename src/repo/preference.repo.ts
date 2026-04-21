@@ -3,19 +3,16 @@ import { db } from "../db/db";
 import { preferencesTable } from "../db/schema";
 
 export const preferenceRepo = {
-  upsertPreference: async (userId: string, lookingToDate: string[]) => {
-    const [preference] = await db
-      .insert(preferencesTable)
-      .values({ userId, lookingToDate })
-      .onConflictDoUpdate({
-        target: preferencesTable.userId,
-        set: {
-          lookingToDate,
-        },
-      })
+  upsertPreference: async (
+    userId: string,
+    data: Partial<typeof preferencesTable.$inferInsert>,
+  ) => {
+    const [updatedPreference] = await db
+      .update(preferencesTable)
+      .set(data)
+      .where(eq(preferencesTable.userId, userId))
       .returning();
-
-    return preference;
+    return updatedPreference;
   },
 
   getPreferenceByIdOrUserId: async (userId: string) => {

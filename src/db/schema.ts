@@ -186,7 +186,6 @@ export const preferencesTable = pgTable(
 
     smoking: boolean("smoking"),
     drinking: boolean("drinking"),
-
     religion: varchar("religion", { length: 300 }).default(""),
     education: varchar("education", { length: 300 }).default(""),
     pets: varchar("pets", { length: 300 }).default(""),

@@ -18,7 +18,6 @@ import { rouletteRoutes } from "./api/roulette/roulette.routes";
 import { errorMiddleware } from "./middleware/error";
 import { paymentRoutes } from "./api/payment/payment.routes";
 import { interactionRoutes } from "./api/interaction/interaction.routes";
-import { cleanupExpiredBoostsCron } from "./cron/cleanup-expired-boosts";
 import swaggerJson from "./lid-api.json";
 
 const app = new Elysia({ prefix: "/api/v1" })
@@ -28,7 +27,7 @@ const app = new Elysia({ prefix: "/api/v1" })
         theme: "moon",
         
       },
-      provider: "swagger-ui",
+      provider: "scalar",
       documentation: {
         info: {
           title: "Love In Diaspora Backend Documentation",
