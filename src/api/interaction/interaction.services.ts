@@ -85,8 +85,8 @@ export const interactionService = {
   ) => {
     if (likerId === likedId) throw new Error("You cannot like yourself");
 
-    const likerExists = await userRepo.getUserById(likerId);
-    const likedExists = await userRepo.getUserById(likedId);
+    const likerExists = await userRepo.getUserDetailsById(likerId);
+    const likedExists = await userRepo.getUserDetailsById(likedId);
 
     if (!likerExists || !likedExists) {
       throw new Error("One or both users do not exist");
@@ -169,7 +169,7 @@ export const interactionService = {
     if (dislikerId === dislikedId)
       throw new Error("You cannot dislike yourself");
 
-    const dislikerExists = await userRepo.getUserById(dislikerId);
+    const dislikerExists = await userRepo.getUserDetailsById(dislikerId);
     const dislikedExists = await userRepo.checkUserExists(dislikedId);
 
     if (!dislikerExists || !dislikedExists) {

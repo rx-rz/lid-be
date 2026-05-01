@@ -20,20 +20,15 @@ import {
   preferencesTable,
   imagesTable,
   userActivityTable,
-  InsertUser,
-  SelectUser,
+  type InsertUser,
+  type SelectUser,
   SelectImage,
   SelectProfile,
   SelectPreferences,
 } from "../db/schema";
 import { DrizzleDB, withDb } from "../db/db";
 import { GetUsersFilters } from "../api/user/user.services";
-import { decodeCursor, encodeCursor } from "../utils/cursor";
-
-type StandardCursor = {
-  createdAt: string;
-  id: string;
-};
+import { Cursor, decodeCursor, encodeCursor } from "../utils/cursor";
 
 export type FilteredUser = SelectUser & {
   latitude: string | null;
@@ -53,20 +48,24 @@ type FindUsersResponse = {
   nextCursor: string | null;
 };
 
+type UserQueryResult = {
+  user: SelectUser;
+  profile: SelectProfile | null;
+  preferences: SelectPreferences | null;
+  onlineStatus: boolean | null;
+  latitude: string | null;
+  longitude: string | null;
+  countryAbbreviation: string | null;
+  hasLikedLoggedInUser: boolean;
+  superLike: boolean;
+  likedAt: Date | null;
+};
+
 export const userRepo = {
   createUser: async (data: InsertUser, db?: DrizzleDB) => {
     const dbInstance = withDb(db);
     const [user] = await dbInstance.insert(usersTable).values(data).returning();
     return user;
-  },
-
-  createProfile: async (userId: string, db?: DrizzleDB) => {
-    const dbInstance = withDb(db);
-    const [profile] = await dbInstance
-      .insert(profilesTable)
-      .values({ userId })
-      .returning();
-    return profile;
   },
 
   updateUser: async (id: string, data: Partial<InsertUser>, db?: DrizzleDB) => {
@@ -81,7 +80,16 @@ export const userRepo = {
 
   getUserById: async (id: string, db?: DrizzleDB) => {
     const dbInstance = withDb(db);
+    const [user] = await dbInstance
+      .select()
+      .from(usersTable)
+      .where(eq(usersTable.id, id))
+      .limit(1);
+    return user;
+  },
 
+  getUserDetailsById: async (id: string, db?: DrizzleDB) => {
+    const dbInstance = withDb(db);
     const user = await dbInstance.query.usersTable.findFirst({
       where: eq(usersTable.id, id),
       columns: {
@@ -109,7 +117,7 @@ export const userRepo = {
 
     return {
       ...userData,
-      subscription: subscriptionType, 
+      subscription: subscriptionType,
       image: images?.[0]?.imageUrl ?? null,
     };
   },
@@ -192,145 +200,26 @@ export const userRepo = {
     const dbInstance = withDb(db);
     const limit = filters.limit ?? 20;
     const decodedCursor = filters.cursor
-      ? decodeCursor<StandardCursor>(filters.cursor)
+      ? decodeCursor<Cursor>(filters.cursor)
       : null;
-    const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
-    const incomingLikes = alias(likesTable, "incomingLikes");
 
-    const baseExclusions = [
-      not(eq(usersTable.id, filters.currentUserId)),
-      filters.blockedUserIds?.length
-        ? not(inArray(usersTable.id, filters.blockedUserIds))
-        : undefined,
-      filters.activity === "justJoined"
-        ? gte(usersTable.createdAt, twentyFourHoursAgo)
-        : undefined,
-      filters.country && filters.country !== "0"
-        ? eq(locationsTable.countryAbbreviation, filters.country)
-        : undefined,
-      notExists(
-        dbInstance
-          .select({ likerId: likesTable.likerId })
-          .from(likesTable)
-          .where(
-            and(
-              eq(likesTable.likerId, filters.currentUserId),
-              eq(likesTable.likedId, usersTable.id),
-            ),
-          ),
-      ),
-      notExists(
-        dbInstance
-          .select({ dislikerId: dislikesTable.dislikerId })
-          .from(dislikesTable)
-          .where(
-            and(
-              eq(dislikesTable.dislikerId, filters.currentUserId),
-              eq(dislikesTable.dislikedId, usersTable.id),
-            ),
-          ),
-      ),
-      notExists(
-        dbInstance
-          .select({ user1Id: matchesTable.user1Id })
-          .from(matchesTable)
-          .where(
-            or(
-              and(
-                eq(matchesTable.user1Id, filters.currentUserId),
-                eq(matchesTable.user2Id, usersTable.id),
-              ),
-              and(
-                eq(matchesTable.user1Id, usersTable.id),
-                eq(matchesTable.user2Id, filters.currentUserId),
-              ),
-            ),
-          ),
-      ),
-    ];
+    const baseExclusions = buildBaseExclusions(dbInstance, filters);
 
-    let superLikedUsers: any[] = [];
+    // Fetch super liked users only on first page
+    const superLikedUsers = !decodedCursor
+      ? await fetchSuperLikedUsers(dbInstance, filters, baseExclusions)
+      : [];
 
-    if (!decodedCursor) {
-      superLikedUsers = await dbInstance
-        .select({
-          user: usersTable,
-          profile: profilesTable,
-          preferences: preferencesTable,
-          onlineStatus: userActivityTable.onlineStatus,
-          latitude: locationsTable.latitude,
-          longitude: locationsTable.longitude,
-          countryAbbreviation: locationsTable.countryAbbreviation,
-          hasLikedLoggedInUser: sql<boolean>`true`,
-          superLike: sql<boolean>`true`,
-          likedAt: incomingLikes.likedAt,
-        })
-        .from(usersTable)
-        .leftJoin(profilesTable, eq(profilesTable.userId, usersTable.id))
-        .leftJoin(preferencesTable, eq(preferencesTable.userId, usersTable.id))
-        .leftJoin(
-          userActivityTable,
-          eq(userActivityTable.userId, usersTable.id),
-        )
-        .leftJoin(locationsTable, eq(locationsTable.userId, usersTable.id))
-        .innerJoin(
-          incomingLikes,
-          and(
-            eq(incomingLikes.likerId, usersTable.id),
-            eq(incomingLikes.likedId, filters.currentUserId),
-            eq(incomingLikes.superLike, true),
-          ),
-        )
-        .where(and(...baseExclusions))
-        .orderBy(desc(incomingLikes.likedAt))
-        .limit(10);
-    }
+    // Fetch normal users with pagination
+    const rawUsers = await fetchNormalUsers(
+      dbInstance,
+      filters,
+      baseExclusions,
+      decodedCursor,
+      limit,
+    );
 
-    const cursorCondition = decodedCursor
-      ? sql`(
-        ${usersTable.createdAt},
-        ${usersTable.id}
-      ) < (
-        ${new Date(decodedCursor.createdAt).toISOString()}::timestamp,
-        ${decodedCursor.id}
-      )`
-      : undefined;
-
-    const rawUsers = await dbInstance
-      .select({
-        user: usersTable,
-        profile: profilesTable,
-        preferences: preferencesTable,
-        onlineStatus: userActivityTable.onlineStatus,
-        latitude: locationsTable.latitude,
-        longitude: locationsTable.longitude,
-        countryAbbreviation: locationsTable.countryAbbreviation,
-        hasLikedLoggedInUser: sql<boolean>`${incomingLikes.likerId} IS NOT NULL`,
-        superLike: sql<boolean>`false`,
-        likedAt: incomingLikes.likedAt,
-      })
-      .from(usersTable)
-      .leftJoin(profilesTable, eq(profilesTable.userId, usersTable.id))
-      .leftJoin(preferencesTable, eq(preferencesTable.userId, usersTable.id))
-      .leftJoin(userActivityTable, eq(userActivityTable.userId, usersTable.id))
-      .leftJoin(locationsTable, eq(locationsTable.userId, usersTable.id))
-      .leftJoin(
-        incomingLikes,
-        and(
-          eq(incomingLikes.likerId, usersTable.id),
-          eq(incomingLikes.likedId, filters.currentUserId),
-        ),
-      )
-      .where(
-        and(
-          cursorCondition,
-          ...baseExclusions,
-          sql`${incomingLikes.superLike} IS NOT TRUE`,
-        ),
-      )
-      .orderBy(desc(usersTable.createdAt), desc(usersTable.id))
-      .limit(limit + 1);
-
+    // Handle pagination
     const hasMorePages = rawUsers.length > limit;
     const normalUsersToReturn = hasMorePages
       ? rawUsers.slice(0, limit)
@@ -339,7 +228,7 @@ export const userRepo = {
 
     const nextCursor =
       hasMorePages && lastUser
-        ? encodeCursor<StandardCursor>({
+        ? encodeCursor<Cursor>({
             createdAt:
               lastUser.user.createdAt?.toISOString() ??
               new Date().toISOString(),
@@ -347,42 +236,202 @@ export const userRepo = {
           })
         : null;
 
+    // Combine users and fetch their images
     const allUsersToReturn = [...superLikedUsers, ...normalUsersToReturn];
-
     const returnedUserIds = allUsersToReturn.map((u) => u.user.id);
-    let imagesMap: Record<string, SelectImage[]> = {};
-
-    if (returnedUserIds.length > 0) {
-      const userImages = await dbInstance
-        .select()
-        .from(imagesTable)
-        .where(inArray(imagesTable.userId, returnedUserIds));
-
-      imagesMap = userImages.reduce(
-        (acc, image) => {
-          if (!acc[image.userId]) acc[image.userId] = [];
-          acc[image.userId].push(image);
-          return acc;
-        },
-        {} as Record<string, SelectImage[]>,
-      );
-    }
+    const imagesMap = await fetchAndMapImages(dbInstance, returnedUserIds);
 
     return {
-      users: allUsersToReturn.map((row) => ({
-        ...row.user,
-        profile: row.profile,
-        preferences: row.preferences,
-        onlineStatus: row.onlineStatus,
-        latitude: row.latitude,
-        longitude: row.longitude,
-        countryAbbreviation: row.countryAbbreviation,
-        hasLikedLoggedInUser: row.hasLikedLoggedInUser,
-        superLike: row.superLike,
-        likedAt: row.likedAt,
-        images: imagesMap[row.user.id] || [],
-      })),
+      users: formatUserResponse(allUsersToReturn, imagesMap),
       nextCursor,
     };
   },
+};
+
+const buildBaseExclusions = (
+  dbInstance: DrizzleDB,
+  filters: GetUsersFilters,
+) => {
+  const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+
+  return [
+    not(eq(usersTable.id, filters.currentUserId)),
+    filters.blockedUserIds?.length
+      ? not(inArray(usersTable.id, filters.blockedUserIds))
+      : undefined,
+    // filters.activity === "justJoined"
+    //   ? gte(usersTable.createdAt, twentyFourHoursAgo)
+    //   : undefined,
+    filters.country && filters.country !== "0"
+      ? eq(locationsTable.countryAbbreviation, filters.country)
+      : undefined,
+    notExists(
+      dbInstance
+        .select({ likerId: likesTable.likerId })
+        .from(likesTable)
+        .where(
+          and(
+            eq(likesTable.likerId, filters.currentUserId),
+            eq(likesTable.likedId, usersTable.id),
+          ),
+        ),
+    ),
+    notExists(
+      dbInstance
+        .select({ dislikerId: dislikesTable.dislikerId })
+        .from(dislikesTable)
+        .where(
+          and(
+            eq(dislikesTable.dislikerId, filters.currentUserId),
+            eq(dislikesTable.dislikedId, usersTable.id),
+          ),
+        ),
+    ),
+    notExists(
+      dbInstance
+        .select({ user1Id: matchesTable.user1Id })
+        .from(matchesTable)
+        .where(
+          or(
+            and(
+              eq(matchesTable.user1Id, filters.currentUserId),
+              eq(matchesTable.user2Id, usersTable.id),
+            ),
+            and(
+              eq(matchesTable.user1Id, usersTable.id),
+              eq(matchesTable.user2Id, filters.currentUserId),
+            ),
+          ),
+        ),
+    ),
+  ].filter(Boolean);
+};
+
+const getCommonSelectFields = (
+  incomingLikes: any,
+  isSuperLike: boolean = false,
+) => ({
+  user: usersTable,
+  profile: profilesTable,
+  preferences: preferencesTable,
+  onlineStatus: userActivityTable.onlineStatus,
+  latitude: locationsTable.latitude,
+  longitude: locationsTable.longitude,
+  countryAbbreviation: locationsTable.countryAbbreviation,
+  hasLikedLoggedInUser: isSuperLike
+    ? sql<boolean>`true`
+    : sql<boolean>`${incomingLikes.likerId} IS NOT NULL`,
+  superLike: sql<boolean>`${isSuperLike}`,
+  likedAt: incomingLikes.likedAt,
+});
+
+const fetchSuperLikedUsers = async (
+  dbInstance: DrizzleDB,
+  filters: GetUsersFilters,
+  baseExclusions: any[],
+): Promise<UserQueryResult[]> => {
+  const incomingLikes = alias(likesTable, "incomingLikes");
+
+  return dbInstance
+    .select(getCommonSelectFields(incomingLikes, true))
+    .from(usersTable)
+    .leftJoin(profilesTable, eq(profilesTable.userId, usersTable.id))
+    .leftJoin(preferencesTable, eq(preferencesTable.userId, usersTable.id))
+    .leftJoin(userActivityTable, eq(userActivityTable.userId, usersTable.id))
+    .leftJoin(locationsTable, eq(locationsTable.userId, usersTable.id))
+    .innerJoin(
+      incomingLikes,
+      and(
+        eq(incomingLikes.likerId, usersTable.id),
+        eq(incomingLikes.likedId, filters.currentUserId),
+        eq(incomingLikes.superLike, true),
+      ),
+    )
+    .where(and(...baseExclusions))
+    .orderBy(desc(incomingLikes.likedAt))
+    .limit(10);
+};
+
+const fetchNormalUsers = async (
+  dbInstance: DrizzleDB,
+  filters: GetUsersFilters & { cursor?: string | null; limit?: number },
+  baseExclusions: any[],
+  decodedCursor: Cursor | null,
+  limit: number,
+): Promise<UserQueryResult[]> => {
+  const incomingLikes = alias(likesTable, "incomingLikes");
+
+  const cursorCondition = decodedCursor
+    ? sql`(
+        ${usersTable.createdAt},
+        ${usersTable.id}
+      ) < (
+        ${new Date(decodedCursor.createdAt).toISOString()}::timestamp,
+        ${decodedCursor.id}
+      )`
+    : undefined;
+
+  return dbInstance
+    .select(getCommonSelectFields(incomingLikes, false))
+    .from(usersTable)
+    .leftJoin(profilesTable, eq(profilesTable.userId, usersTable.id))
+    .leftJoin(preferencesTable, eq(preferencesTable.userId, usersTable.id))
+    .leftJoin(userActivityTable, eq(userActivityTable.userId, usersTable.id))
+    .leftJoin(locationsTable, eq(locationsTable.userId, usersTable.id))
+    .leftJoin(
+      incomingLikes,
+      and(
+        eq(incomingLikes.likerId, usersTable.id),
+        eq(incomingLikes.likedId, filters.currentUserId),
+      ),
+    )
+    .where(
+      and(
+        cursorCondition,
+        ...baseExclusions,
+        sql`${incomingLikes.superLike} IS NOT TRUE`,
+      ),
+    )
+    .orderBy(desc(usersTable.createdAt), desc(usersTable.id))
+    .limit(limit + 1);
+};
+
+const fetchAndMapImages = async (
+  dbInstance: DrizzleDB,
+  userIds: string[],
+): Promise<Record<string, SelectImage[]>> => {
+  if (userIds.length === 0) return {};
+
+  const userImages = await dbInstance
+    .select()
+    .from(imagesTable)
+    .where(inArray(imagesTable.userId, userIds));
+
+  return userImages.reduce(
+    (acc, image) => {
+      if (!acc[image.userId]) acc[image.userId] = [];
+      acc[image.userId].push(image);
+      return acc;
+    },
+    {} as Record<string, SelectImage[]>,
+  );
+};
+
+const formatUserResponse = (
+  rows: UserQueryResult[],
+  imagesMap: Record<string, SelectImage[]>,
+): FilteredUser[] => {
+  return rows.map((row) => ({
+    ...row.user,
+    profile: row.profile,
+    preferences: row.preferences,
+    onlineStatus: row.onlineStatus,
+    latitude: row.latitude,
+    longitude: row.longitude,
+    countryAbbreviation: row.countryAbbreviation,
+    hasLikedLoggedInUser: row.hasLikedLoggedInUser,
+    superLike: row.superLike,
+    likedAt: row.likedAt,
+    images: imagesMap[row.user.id] || [],
+  }));
 };

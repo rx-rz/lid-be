@@ -30,9 +30,17 @@ export const profileRepo = {
     return profile;
   },
 
+  createProfile: async (userId: string, db?: DrizzleDB) => {
+    const dbInstance = withDb(db);
+    const [profile] = await dbInstance
+      .insert(profilesTable)
+      .values({ userId })
+      .returning();
+    return profile;
+  },
+
   getProfileWithDetails: async (userId: string, db?: DrizzleDB) => {
     const dbInstance = withDb(db);
-
     const [profileRecord] = await dbInstance
       .select({
         profile: profilesTable,

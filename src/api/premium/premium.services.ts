@@ -50,7 +50,7 @@ export const premiumService = {
     await cacheUtils.invalidateUserDiscoveryCache(userId);
 
     userRepo
-      .getUserById(userId)
+      .getUserDetailsById(userId)
       .then((user) => {
         if (user?.fcmToken) {
           sendBoostStartedNotification(user.fcmToken);
@@ -140,7 +140,7 @@ export const premiumService = {
         await Promise.all(
           expiredUsers.map(async (u) => {
             await cacheUtils.invalidateUserDiscoveryCache(u.userId);
-            const user = await userRepo.getUserById(u.userId);
+            const user = await userRepo.getUserDetailsById(u.userId);
             if (user?.fcmToken) {
               await sendBoostEndedNotification(user.fcmToken);
             }

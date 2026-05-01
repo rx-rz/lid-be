@@ -1,5 +1,11 @@
 import { Elysia, t } from "elysia";
 import { streamService } from "./stream.services";
+import { streamClient } from "../../services/stream.services";
+import { fcmAdmin } from "../../services/fcm";
+import { logger } from "../../utils/logger";
+import { userRepo } from "../../repo/user.repo";
+
+
 export const streamRoutes = new Elysia({ prefix: "/stream" })
   .post("/token", ({ body }) => streamService.generateToken(body), {
     body: t.Object({
@@ -17,4 +23,81 @@ export const streamRoutes = new Elysia({ prefix: "/stream" })
       body: t.Object({ callId: t.String(), type: t.Optional(t.String()) }),
       detail: { tags: ["Chat"], summary: "Setup call context" },
     },
+  )
+  .post(
+    "/new-message-webhook",
+    async ({ body, headers, set }: { body: any; headers: any; set: any }) => {
+      const isValid = streamClient.verifyWebhook(
+        JSON.stringify(body),
+        headers["x-signature"],
+      );
+
+      if (!isValid) {
+        set.status = 401;
+        return { error: "Invalid signature" };
+      }
+
+      if (body.type !== "message.new") {
+        return { ok: true };
+      }
+
+      const senderId = body.user?.id;
+      const senderName = body.user?.name;
+      const messageText = body.message?.text;
+
+      const members = body.members || [];
+
+      const recipients = members.filter((m: any) => m.user_id !== senderId);
+
+      for (const r of recipients) {
+        const user = await userRepo.getUserById(r.user_id);
+
+        await sendMessageNotification(
+          user.fcmToken ?? "",
+          senderName,
+          messageText,
+        );
+      }
+
+      return { ok: true };
+    },
   );
+
+export const sendMessageNotification = async (
+  targetFcmToken: string,
+  senderName: string,
+  messageText?: string,
+  options?: {
+    channelId?: string;
+    senderId?: string;
+  },
+) => {
+  if (!targetFcmToken) return;
+
+  const body =
+    messageText && messageText.trim().length > 0
+      ? messageText
+      : "Sent you a message";
+
+  try {
+    await fcmAdmin.messaging().send({
+      notification: {
+        title: `💬 ${senderName}`,
+        body,
+      },
+
+      data: {
+        type: "message.new",
+        senderName,
+        senderId: options?.senderId ?? "",
+        channelId: options?.channelId ?? "",
+      },
+
+      token: targetFcmToken,
+    });
+
+    logger.info("[Message] Push notification sent successfully");
+  } catch (err) {
+    logger.error({ err }, "[Message] Error sending FCM message notification");
+  }
+};

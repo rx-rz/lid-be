@@ -29,12 +29,6 @@ export const onboardingPageEnum = pgEnum("onboarding_page", [
   "AddPhotos",
 ]);
 
-export const subscriptionEnum = pgEnum("subscription_type", [
-  "free",
-  "premium",
-  "gold",
-]);
-
 export const subscriptionTierEnum = pgEnum("subscription_tier", [
   "economy",
   "premium",
@@ -64,7 +58,6 @@ export type PaymentStatus =
   | "canceled";
 
 export type Gender = InferEnum<typeof genderEnum>;
-export type SubscriptionType = InferEnum<typeof subscriptionEnum>;
 export type OnboardingPage = InferEnum<typeof onboardingPageEnum>;
 
 export const reportStatusEnum = pgEnum("report_status", [
@@ -137,6 +130,7 @@ export const usersRelations = relations(usersTable, ({ one, many }) => ({
 
 export type InsertUser = typeof usersTable.$inferInsert;
 export type SelectUser = typeof usersTable.$inferSelect;
+export type SelectUserRow = typeof usersTable.$inferSelect;
 
 export const profilesTable = pgTable("profiles", {
   id: uuid("id").defaultRandom().primaryKey(),

@@ -29,7 +29,6 @@ export const streamService = {
         custom: { email: email || "" },
       },
     ]);
-
     const validityInSeconds = 10 * 365 * 24 * 60 * 60;
 
     const token = client.generateUserToken({

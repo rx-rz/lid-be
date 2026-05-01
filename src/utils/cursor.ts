@@ -10,3 +10,8 @@ export const decodeCursor = <T = any>(cursor?: string | null): T | null => {
     return null;
   }
 };
+
+export type Cursor = {
+  createdAt: string;
+  id: string;
+};

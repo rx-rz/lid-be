@@ -7,7 +7,7 @@ export const profileViewsService = {
   recordView: async (viewerId: string, viewedId: string) => {
     if (viewerId === viewedId) throw new Error("Cannot view your own profile");
 
-    const viewerExists = await userRepo.getUserById(viewerId);
+    const viewerExists = await userRepo.getUserDetailsById(viewerId);
     const viewedExists = await userRepo.checkUserExists(viewedId);
 
     if (!viewerExists || !viewedExists) {

@@ -1,14 +1,18 @@
 import { faker } from "@faker-js/faker";
-import { userService } from "../api/user/user.services";
-import { profileService } from "../api/profile/profile.services";
-import { locationService } from "../api/location/location.services";
-import { preferenceService } from "../api/preference/preference.services";
-import { interactionService } from "../api/interaction/interaction.services";
-
-import type { SubscriptionTier } from "../db/schema";
+import { db } from "../db/db";
+import {
+  usersTable,
+  profilesTable,
+  locationsTable,
+  preferencesTable,
+  imagesTable,
+  premiumFeaturesTable,
+  likesTable,
+  dislikesTable,
+  matchesTable,
+} from "../db/schema";
+import type { SubscriptionTier, Gender, OnboardingPage } from "../db/schema";
 import { TIER_PERMISSIONS } from "../utils/permissions";
-import { premiumFeatureRepo } from "../repo/premium.repo";
-type Gender = "MAN" | "WOMAN" | "NONBINARY";
 
 const GENDERS: Gender[] = ["MAN", "WOMAN", "NONBINARY"];
 const SUBSCRIPTIONS: SubscriptionTier[] = [
@@ -17,8 +21,12 @@ const SUBSCRIPTIONS: SubscriptionTier[] = [
   "first-class",
   "weekender",
 ];
-const BATCH_SIZE = 50;
+const ONBOARDING_PAGE: OnboardingPage = "AddPhotos";
 
+// Lowered to prevent connection pool exhaustion
+const BATCH_SIZE = 25;
+
+// --- Data Pools ---
 const ZODIACS = [
   "Aries",
   "Taurus",
@@ -106,13 +114,33 @@ const TRAVEL_PLANS = [
 const PERSONALITIES = ["Introvert", "Extrovert", "Ambivert"];
 const RELATIONSHIP_STATUSES = ["Single", "Divorced", "Widowed", "Separated"];
 const PRONOUNS = ["He/Him", "She/Her", "They/Them", "Other"];
+const INTERESTS = [
+  "traveling",
+  "reading",
+  "gaming",
+  "cooking",
+  "fitness",
+  "music",
+  "art",
+  "photography",
+  "movies",
+];
 
-export const runSeeder = async (targetUserCount = 1000) => {
-  console.log(`🌱 Starting batched seeder for ${targetUserCount} users...`);
+// Helper to safely convert "unlimited" to an integer for the database
+const parseLimit = (limit: any): number => {
+  if (limit === "unlimited") return 9999;
+  const parsed = Number(limit);
+  return isNaN(parsed) ? 0 : parsed;
+};
+
+export const runSeeder = async (targetUserCount = 100) => {
+  console.log(
+    `🌱 Starting raw database seeder for ${targetUserCount} users...`,
+  );
   const seededUserIds: string[] = [];
 
   // ==========================================
-  // PHASE 1: Create Users, Profiles, Locations, and Wallets
+  // PHASE 1: Direct Database Inserts (Users, Profiles, Configs)
   // ==========================================
   console.log("👥 Creating users in batches...");
 
@@ -124,124 +152,136 @@ export const runSeeder = async (targetUserCount = 1000) => {
         const phone = `+1${faker.string.numeric(10)}`;
         const gender = faker.helpers.arrayElement(GENDERS);
         const subTier = faker.helpers.arrayElement(SUBSCRIPTIONS);
-        const lookingToDate = faker.helpers.arrayElements(GENDERS, {
-          min: 1,
-          max: 3,
-        });
+
         const birthday = faker.date
           .birthdate({ min: 18, max: 50, mode: "age" })
           .toISOString()
           .split("T")[0];
 
-        // Process a single user completely
-        await userService.createUserProfile(clerkId, phone);
-        await userService.updateUser(clerkId, {
-          displayName: faker.person.firstName(),
-          email: faker.internet.email(),
-          gender: gender,
-          birthday: birthday,
-          verified: faker.datatype.boolean(),
-          showGender: true,
-          subscriptionType: subTier,
-          onboardingPage: "AddPhotos",
-        });
+        try {
+          // 1. Insert Base User
+          await db.insert(usersTable).values({
+            id: clerkId,
+            displayName: faker.person.firstName(),
+            email: faker.internet.email(),
+            gender: gender,
+            birthday: birthday,
+            verified: faker.datatype.boolean({ probability: 0.7 }),
+            showGender: true,
+            subscriptionType: subTier,
+            onboardingPage: ONBOARDING_PAGE,
+            phone: phone,
+            lastLogin: new Date(),
+          });
 
-        const limits = TIER_PERMISSIONS[subTier];
-        await premiumFeatureRepo.upsertFeatures(clerkId, {
-          superlikesRemaining: limits.superLikesPerWeek,
-          boostsRemaining: limits.boostsPerWeek,
-          loveLettersRemaining: limits.loveLettersPerWeek,
-          videoCallsRemaining:
-            limits.videoCalls === "unlimited" ? 9999 : limits.videoCalls,
-        });
+          // 2. Insert Profile
+          const userInterests = faker.helpers.arrayElements(INTERESTS, {
+            min: 2,
+            max: 5,
+          });
+          await db.insert(profilesTable).values({
+            userId: clerkId,
+            bio: faker.person.bio(),
+            interests: userInterests,
+          });
 
-        await profileService.createProfile(
-          clerkId,
-          faker.person.bio(),
-          faker.helpers.arrayElements(
-            [
-              "traveling",
-              "reading",
-              "gaming",
-              "cooking",
-              "fitness",
-              "music",
-              "art",
-            ],
-            { min: 2, max: 5 },
-          ),
-        );
+          // 3. Insert Premium Limits (Safe Parsing for "unlimited")
+          const limits =
+            TIER_PERMISSIONS[subTier] || TIER_PERMISSIONS["economy"];
+          await db.insert(premiumFeaturesTable).values({
+            userId: clerkId,
+            superlikesRemaining: parseLimit(limits.superLikesPerWeek),
+            boostsRemaining: parseLimit(limits.boostsPerWeek),
+            loveLettersRemaining: parseLimit(limits.loveLettersPerWeek),
+            recallsRemaining: parseLimit(limits.recallsPerWeek),
+            videoCallsRemaining: parseLimit(limits.videoCalls),
+          });
 
-        await locationService.createLocation(
-          clerkId,
-          faker.location.latitude().toString(),
-          faker.location.longitude().toString(),
-        );
+          // 4. Insert Location (Using Nigeria bounding box coords for accurate distance testing)
+          await db.insert(locationsTable).values({
+            userId: clerkId,
+            latitude: faker.location.latitude({ min: 4, max: 13 }).toString(),
+            longitude: faker.location.longitude({ min: 3, max: 14 }).toString(),
+            countryAbbreviation: "NG",
+          });
 
-        const pref = await preferenceService.create(clerkId, lookingToDate);
+          // 5. Insert Preferences
+          await db.insert(preferencesTable).values({
+            userId: clerkId,
+            lookingToDate: faker.helpers.arrayElements(GENDERS, {
+              min: 1,
+              max: 3,
+            }),
+            interests: userInterests,
+            smoking: faker.datatype.boolean(),
+            drinking: faker.datatype.boolean(),
+            hasBio: true,
+            opennessToLongDistance: faker.datatype.boolean(),
+            willingToRelocate: faker.datatype.boolean(),
+            pronouns: faker.helpers.arrayElement(PRONOUNS),
+            zodiac: faker.helpers.arrayElement(ZODIACS),
+            bio: faker.lorem.sentence(),
+            whyHere: faker.helpers.arrayElement([
+              "Long-term relationship",
+              "Short-term fun",
+              "New friends",
+            ]),
+            religion: faker.helpers.arrayElement(RELIGIONS),
+            education: faker.helpers.arrayElement([
+              "Bachelors",
+              "Masters",
+              "PhD",
+              "High School",
+            ]),
+            pets: faker.helpers.arrayElement(PETS),
+            language: faker.helpers.arrayElements(LANGUAGES, {
+              min: 1,
+              max: 3,
+            }),
+            ethnicity: faker.helpers.arrayElements(ETHNICITIES, {
+              min: 1,
+              max: 2,
+            }),
+            familyPlans: faker.helpers.arrayElement(FAMILY_PLANS),
+            gender: faker.helpers.arrayElement(GENDERS),
+            height: `${faker.number.int({ min: 150, max: 200 })}cm`,
+            jobTitle: faker.person.jobTitle(),
+            company: faker.company.name(),
+            school: "University of " + faker.location.city(),
+            sexuality: faker.helpers.arrayElement(SEXUALITIES),
+            bodyType: faker.helpers.arrayElement(BODY_TYPES),
+            dietaryPreference: faker.helpers.arrayElement(DIETS),
+            sleepingHabits: faker.helpers.arrayElement(SLEEPING_HABITS),
+            workoutFrequency: faker.helpers.arrayElement(WORKOUT_FREQS),
+            loveLanguage: faker.helpers.arrayElement(LOVE_LANGUAGES),
+            travelPlans: faker.helpers.arrayElement(TRAVEL_PLANS),
+            personality: faker.helpers.arrayElement(PERSONALITIES),
+            relationshipStatus: faker.helpers.arrayElement(
+              RELATIONSHIP_STATUSES,
+            ),
+            age: "18-55",
+            distance: "100",
+            minNumberOfPhotos: "1",
+          });
 
-        // FULL PREFERENCES POPULATION
-        await preferenceService.update(pref.id, clerkId, {
-          smoking: faker.datatype.boolean(),
-          drinking: faker.datatype.boolean(),
-          hasBio: true,
-          opennessToLongDistance: faker.datatype.boolean(),
-          willingToRelocate: faker.datatype.boolean(),
+          // 6. Insert dummy images (Required for discovery visibility scoring)
+          await db.insert(imagesTable).values([
+            { userId: clerkId, imageUrl: faker.image.avatar(), order: 1 },
+            { userId: clerkId, imageUrl: faker.image.avatar(), order: 2 },
+          ]);
 
-          pronouns: faker.helpers.arrayElement(PRONOUNS),
-          zodiac: faker.helpers.arrayElement(ZODIACS),
-          bio: faker.lorem.sentence(),
-          whyHere: faker.helpers.arrayElement([
-            "Long-term relationship",
-            "Short-term fun",
-            "New friends",
-            "Still figuring it out",
-          ]),
-          religion: faker.helpers.arrayElement(RELIGIONS),
-          education: faker.helpers.arrayElement([
-            "Bachelors",
-            "Masters",
-            "PhD",
-            "High School",
-          ]),
-          pets: faker.helpers.arrayElement(PETS),
-          language: faker.helpers.arrayElements(LANGUAGES, { min: 1, max: 3 }),
-          ethnicity: faker.helpers.arrayElements(ETHNICITIES, {
-            min: 1,
-            max: 2,
-          }),
-          familyPlans: faker.helpers.arrayElement(FAMILY_PLANS),
-          gender: faker.helpers.arrayElement(GENDERS),
-          height: `${faker.number.int({ min: 150, max: 200 })}cm`,
-
-          jobTitle: faker.person.jobTitle(),
-          company: faker.company.name(),
-          school: "University of " + faker.location.city(),
-
-          sexuality: faker.helpers.arrayElement(SEXUALITIES),
-          bodyType: faker.helpers.arrayElement(BODY_TYPES),
-          dietaryPreference: faker.helpers.arrayElement(DIETS),
-          sleepingHabits: faker.helpers.arrayElement(SLEEPING_HABITS),
-          workoutFrequency: faker.helpers.arrayElement(WORKOUT_FREQS),
-          loveLanguage: faker.helpers.arrayElement(LOVE_LANGUAGES),
-          travelPlans: faker.helpers.arrayElement(TRAVEL_PLANS),
-          personality: faker.helpers.arrayElement(PERSONALITIES),
-          relationshipStatus: faker.helpers.arrayElement(RELATIONSHIP_STATUSES),
-        });
-
-        return clerkId; // Return ID on success
+          return clerkId;
+        } catch (error) {
+          console.error(`Error inserting user ${clerkId}:`, error);
+          throw error;
+        }
       },
     );
 
-    // Run the batch concurrently
     const results = await Promise.allSettled(batchPromises);
-
-    // Extract successful IDs
     results.forEach((res) => {
       if (res.status === "fulfilled") {
         seededUserIds.push(res.value);
-      } else {
-        console.error(`❌ Batch error:`, res.reason);
       }
     });
 
@@ -255,67 +295,70 @@ export const runSeeder = async (targetUserCount = 1000) => {
   // ==========================================
   console.log("💘 Preparing interaction pool...");
 
-  const interactionTasks: (() => Promise<void>)[] = [];
+  const interactionsMap = new Set<string>();
 
   for (const likerId of seededUserIds) {
     const interactions = faker.helpers.arrayElements(seededUserIds, {
-      min: 10,
-      max: 30,
+      min: 5,
+      max: 15,
     });
 
     for (const targetId of interactions) {
       if (likerId === targetId) continue;
 
-      interactionTasks.push(async () => {
-        const interactionType = faker.helpers.arrayElement([
-          "LIKE",
-          "SUPER_LIKE",
-          "DISLIKE",
-          "SKIP",
-        ]);
-        try {
-          if (interactionType === "LIKE") {
-            await interactionService.likeUser(likerId, targetId, false);
-          } else if (interactionType === "SUPER_LIKE") {
-            await interactionService.likeUser(likerId, targetId, true);
-          } else if (interactionType === "DISLIKE") {
-            await interactionService.dislikeUser(likerId, targetId);
-          }
-        } catch (error: any) {
-          const isExpectedError =
-            error.message.includes("already exists") ||
-            error.message.includes("cannot like yourself") ||
-            error.message.includes("SWIPE_LIMIT_REACHED") ||
-            error.message.includes("INSUFFICIENT_SUPERLIKES");
+      const interactionKey = `${likerId}_${targetId}`;
+      if (interactionsMap.has(interactionKey)) continue;
 
-          if (!isExpectedError) {
-            console.warn(
-              `[Interaction Warning] ${likerId} -> ${targetId}:`,
-              error.message,
-            );
+      const interactionType = faker.helpers.arrayElement([
+        "LIKE",
+        "SUPER_LIKE",
+        "DISLIKE",
+        "SKIP",
+      ]);
+
+      try {
+        if (interactionType === "LIKE" || interactionType === "SUPER_LIKE") {
+          await db
+            .insert(likesTable)
+            .values({
+              likerId,
+              likedId: targetId,
+              superLike: interactionType === "SUPER_LIKE",
+            })
+            .onConflictDoNothing();
+
+          // Check if it's a match (if target already liked liker)
+          const reverseKey = `${targetId}_${likerId}`;
+          if (interactionsMap.has(reverseKey)) {
+            await db
+              .insert(matchesTable)
+              .values({
+                user1Id: likerId,
+                user2Id: targetId,
+              })
+              .onConflictDoNothing();
           }
+
+          interactionsMap.add(interactionKey);
+        } else if (interactionType === "DISLIKE") {
+          await db
+            .insert(dislikesTable)
+            .values({
+              dislikerId: likerId,
+              dislikedId: targetId,
+            })
+            .onConflictDoNothing();
+
+          interactionsMap.add(interactionKey);
         }
-      });
+      } catch (e) {
+        // Silently catch composite key duplicates
+      }
     }
   }
 
   console.log(
-    `🚀 Executing ${interactionTasks.length} interactions in batches...`,
-  );
-
-  for (let i = 0; i < interactionTasks.length; i += BATCH_SIZE) {
-    const batch = interactionTasks.slice(i, i + BATCH_SIZE);
-    await Promise.allSettled(batch.map((task) => task()));
-
-    if ((i + BATCH_SIZE) % (BATCH_SIZE * 20) === 0) {
-      console.log(
-        `⏳ Interaction progress: ${Math.min(i + BATCH_SIZE, interactionTasks.length)} / ${interactionTasks.length}`,
-      );
-    }
-  }
-
-  console.log(
-    `🎉 Seeding complete! Processed ${seededUserIds.length} users and all interactions.`,
+    `🎉 Seeding complete! Processed ${seededUserIds.length} users and interactions.`,
   );
 };
 
