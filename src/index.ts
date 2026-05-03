@@ -29,7 +29,7 @@ export const createApp = () =>
         scalar: {
           theme: "moon",
         },
-        provider: process.env.NODE_ENV === "development" ? "swagger-ui" : "scalar",
+        provider: process.env.NODE_ENV === "development" ? "scalar" : "swagger-ui",
         documentation: {
           info: {
             title: "Love In Diaspora Backend Documentation",
