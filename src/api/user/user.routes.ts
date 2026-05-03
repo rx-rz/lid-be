@@ -1,6 +1,5 @@
 import { Elysia, t } from "elysia";
 import { clerkPlugin } from "elysia-clerk";
-import { rateLimit } from "elysia-rate-limit"; // <-- Import rate limiter
 
 import { userRepo } from "../../repo/user.repo";
 import { userService } from "./user.services";
@@ -12,7 +11,10 @@ import {
   GetUsersQuerySchema,
   buildUserFilters,
 } from "../../schemas/user.schema";
-import { RedisRateLimitContext } from "../../utils/rate-limit";
+import {
+  rateLimitPresets,
+  routeRateLimit,
+} from "../../config/rate-limits";
 /**
  * ---------------------------------------
  * SHARED RESPONSE SCHEMAS
@@ -34,8 +36,6 @@ const FailResponse = t.Object({
  * ---------------------------------------
  */
 
-const DURATION_MS = 60000; // 1 minute
-
 export const userRoutes = new Elysia({ name: "routes.user" })
   .use(clerkPlugin())
 
@@ -47,13 +47,7 @@ export const userRoutes = new Elysia({ name: "routes.user" })
    * Max 60 requests per minute per IP.
    */
   .use(
-    rateLimit({
-      duration: DURATION_MS,
-      max: 60,
-      scoping: "scoped",
-      context: new RedisRateLimitContext(DURATION_MS, "rl:users:"),
-      errorResponse: "Too many requests. Please slow down.",
-    }),
+    routeRateLimit(rateLimitPresets.generalAuthenticated),
   )
 
   /**
@@ -315,6 +309,7 @@ export const userRoutes = new Elysia({ name: "routes.user" })
    * ---------------------------------------
    */
   .use(blockMiddleware)
+  .use(routeRateLimit(rateLimitPresets.discovery))
   .get(
     "/users",
     async ({ query, set }) => {

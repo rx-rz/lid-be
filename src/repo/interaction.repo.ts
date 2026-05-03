@@ -1,4 +1,4 @@
-import { eq, and, sql, exists } from "drizzle-orm";
+import { desc, eq, and, sql, exists } from "drizzle-orm";
 import { db } from "../db/db";
 import {
   likesTable,
@@ -101,7 +101,8 @@ export const interactionRepo = {
       })
       .from(likesTable)
       .where(eq(likesTable.likedId, userId))
-      .leftJoin(usersTable, eq(likesTable.likerId, usersTable.id));
+      .leftJoin(usersTable, eq(likesTable.likerId, usersTable.id))
+      .orderBy(desc(likesTable.likedAt));
   },
 
   getInteractionHistoryIds: async (userId: string) => {

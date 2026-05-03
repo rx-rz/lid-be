@@ -3,8 +3,14 @@ import { paymentService } from "./payment.services";
 import { stripeService } from "../../services/stripe.services";
 import Stripe from "stripe";
 import { clerkPlugin } from "elysia-clerk";
+import { loggers } from "../../utils/logger";
+import {
+  rateLimitPresets,
+  routeRateLimit,
+} from "../../config/rate-limits";
 
 export const paymentRoutes = new Elysia({})
+  .use(routeRateLimit(rateLimitPresets.webhook))
   .post(
     "/webhook",
     async ({ request, set }) => {
@@ -30,7 +36,7 @@ export const paymentRoutes = new Elysia({})
 
         return { received: true };
       } catch (err: any) {
-        console.error("Webhook Error:", err.message);
+        loggers.payment.warn({ err }, "stripe webhook failed");
         set.status = 400;
         return `Webhook Error: ${err.message}`;
       }
@@ -40,6 +46,7 @@ export const paymentRoutes = new Elysia({})
     },
   )
 
+  .use(routeRateLimit(rateLimitPresets.payments))
   .get(
     "/plans",
     async ({ set }) => {
@@ -54,6 +61,59 @@ export const paymentRoutes = new Elysia({})
       detail: {
         tags: ["Payments"],
         summary: "Get available subscription plans",
+      },
+    },
+  )
+  .get(
+    "/addons",
+    async ({ set }) => {
+      try {
+        return await paymentService.getAddons();
+      } catch (error) {
+        set.status = 500;
+        return { error: "Failed to fetch add-ons" };
+      }
+    },
+    {
+      detail: {
+        tags: ["Payments"],
+        summary: "Get available add-on packs",
+      },
+    },
+  )
+  .post(
+    "/addons/checkout",
+    async ({ body, set }) => {
+      try {
+        return await paymentService.createAddonCheckout(
+          body.userId,
+          body.packId,
+          body.successUrl,
+          body.cancelUrl,
+        );
+      } catch (error: any) {
+        if (error.message === "USER_NO_CUSTOMER_ID") {
+          set.status = 400;
+          return { error: "User has no Stripe customer ID" };
+        }
+        if (error.message === "ADDON_PACK_NOT_FOUND") {
+          set.status = 404;
+          return { error: "Add-on pack not found" };
+        }
+        set.status = 500;
+        return { error: "Failed to create add-on checkout session" };
+      }
+    },
+    {
+      body: t.Object({
+        userId: t.String(),
+        packId: t.String(),
+        successUrl: t.Optional(t.String()),
+        cancelUrl: t.Optional(t.String()),
+      }),
+      detail: {
+        tags: ["Payments"],
+        summary: "Create an add-on checkout session",
       },
     },
   )

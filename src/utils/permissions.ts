@@ -11,11 +11,17 @@ export type AppFeatures = {
   hasAdvancedFilters: boolean;
   recallsPerWeek: number | "unlimited";
   myLikesLimit: number | false;
+  fullStatus: boolean;
+  profileViews: boolean | "unlimited";
+  priorityAisle: boolean;
+  ads: boolean;
+  monthlyCredits: boolean;
+  rollover: boolean;
 };
 
 export const TIER_PERMISSIONS: Record<SubscriptionTier, AppFeatures> = {
   economy: {
-    dailySwipes: 30,
+    dailySwipes: 25,
     hasUndo: false,
     canSeeWhoLikedMe: false,
     superLikesPerWeek: 0,
@@ -25,6 +31,12 @@ export const TIER_PERMISSIONS: Record<SubscriptionTier, AppFeatures> = {
     recallsPerWeek: 0,
     hasAdvancedFilters: false,
     myLikesLimit: false,
+    fullStatus: false,
+    profileViews: false,
+    priorityAisle: false,
+    ads: true,
+    monthlyCredits: false,
+    rollover: false,
   },
   premium: {
     dailySwipes: "unlimited",
@@ -32,11 +44,17 @@ export const TIER_PERMISSIONS: Record<SubscriptionTier, AppFeatures> = {
     canSeeWhoLikedMe: true,
     superLikesPerWeek: 5,
     boostsPerWeek: 1,
-    loveLettersPerWeek: 1,
-    videoCalls: "unlimited",
+    loveLettersPerWeek: 0,
+    videoCalls: 8,
     recallsPerWeek: "unlimited",
-    hasAdvancedFilters: false,
+    hasAdvancedFilters: true,
     myLikesLimit: 20,
+    fullStatus: true,
+    profileViews: true,
+    priorityAisle: true,
+    ads: false,
+    monthlyCredits: true,
+    rollover: true,
   },
   "first-class": {
     dailySwipes: "unlimited",
@@ -48,7 +66,13 @@ export const TIER_PERMISSIONS: Record<SubscriptionTier, AppFeatures> = {
     videoCalls: "unlimited",
     recallsPerWeek: "unlimited",
     hasAdvancedFilters: true,
-    myLikesLimit: 30,
+    myLikesLimit: false,
+    fullStatus: true,
+    profileViews: "unlimited",
+    priorityAisle: true,
+    ads: false,
+    monthlyCredits: true,
+    rollover: true,
   },
   weekender: {
     dailySwipes: "unlimited",
@@ -60,6 +84,12 @@ export const TIER_PERMISSIONS: Record<SubscriptionTier, AppFeatures> = {
     videoCalls: "unlimited",
     recallsPerWeek: "unlimited",
     hasAdvancedFilters: true,
-    myLikesLimit: 30,
+    myLikesLimit: false,
+    fullStatus: true,
+    profileViews: "unlimited",
+    priorityAisle: true,
+    ads: false,
+    monthlyCredits: false,
+    rollover: false,
   },
 };

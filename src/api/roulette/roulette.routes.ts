@@ -1,6 +1,7 @@
 import { Elysia, t } from "elysia";
 import { rouletteService } from "./roulette.services";
 import { clerkPlugin } from "elysia-clerk";
+import { loggers } from "../../utils/logger";
 
 export const rouletteRoutes = new Elysia({ prefix: "/roulette" })
   .use(clerkPlugin())
@@ -16,7 +17,7 @@ export const rouletteRoutes = new Elysia({ prefix: "/roulette" })
 
         return { success: true, ...result };
       } catch (error) {
-        console.error("Roulette start error:", error);
+        loggers.roulette.error({ err: error }, "failed to start roulette");
         set.status = 500;
         return {
           success: false,
@@ -42,7 +43,7 @@ export const rouletteRoutes = new Elysia({ prefix: "/roulette" })
       try {
         return await rouletteService.getDetails(userId);
       } catch (error) {
-        console.error("Get details error:", error);
+        loggers.roulette.error({ err: error, userId }, "failed to get roulette details");
         set.status = 500;
         return {
           success: false,
@@ -82,7 +83,7 @@ export const rouletteRoutes = new Elysia({ prefix: "/roulette" })
 
         return result;
       } catch (error) {
-        console.error("Roulette end error:", error);
+        loggers.roulette.error({ err: error }, "failed to end roulette session");
         set.status = 500;
         return {
           success: false,
@@ -105,7 +106,7 @@ export const rouletteRoutes = new Elysia({ prefix: "/roulette" })
       try {
         return await rouletteService.getStatus(userId);
       } catch (error) {
-        console.error("Status check error:", error);
+        loggers.roulette.error({ err: error, userId }, "failed to get roulette status");
         set.status = 500;
         return {
           success: false,
@@ -128,7 +129,7 @@ export const rouletteRoutes = new Elysia({ prefix: "/roulette" })
       try {
         return await rouletteService.cancelSearch(body.userId);
       } catch (error) {
-        console.error("Cancel error:", error);
+        loggers.roulette.error({ err: error }, "failed to cancel roulette");
         set.status = 500;
         return {
           success: false,
@@ -152,7 +153,7 @@ export const rouletteRoutes = new Elysia({ prefix: "/roulette" })
         const limit = query.limit ? parseInt(query.limit, 10) : 20;
         return await rouletteService.getHistory(userId, limit);
       } catch (error) {
-        console.error("History error:", error);
+        loggers.roulette.error({ err: error, userId }, "failed to get roulette history");
         set.status = 500;
         return {
           success: false,
@@ -173,7 +174,7 @@ export const rouletteRoutes = new Elysia({ prefix: "/roulette" })
       try {
         return await rouletteService.cleanupExpired();
       } catch (error) {
-        console.error("Cleanup error:", error);
+        loggers.roulette.error({ err: error }, "failed to clean up roulette matches");
         set.status = 500;
         return {
           success: false,
@@ -192,7 +193,7 @@ export const rouletteRoutes = new Elysia({ prefix: "/roulette" })
       try {
         return await rouletteService.getStats();
       } catch (error) {
-        console.error("Stats error:", error);
+        loggers.roulette.error({ err: error }, "failed to get roulette stats");
         set.status = 500;
         return {
           success: false,

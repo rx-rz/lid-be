@@ -3,6 +3,7 @@ import { userRepo } from "../../repo/user.repo";
 import { fcmAdmin } from "../../services/fcm";
 import { cacheUtils } from "../../utils/cache.utils";
 import { logger } from "../../utils/logger";
+import { resolveTier } from "../../services/entitlements";
 
 const sendBoostStartedNotification = async (targetFcmToken: string) => {
   if (!targetFcmToken) return;
@@ -36,7 +37,11 @@ const sendBoostEndedNotification = async (targetFcmToken: string) => {
 
 export const premiumService = {
   boostUser: async (userId: string) => {
-
+    const user = await userRepo.getUserById(userId);
+    await premiumFeatureRepo.ensureSubscriptionAllowances(
+      userId,
+      resolveTier(user?.subscriptionType),
+    );
     const updatedWallet = await premiumFeatureRepo.useBoost(userId, 30);
 
     if (!updatedWallet) {
@@ -44,7 +49,13 @@ export const premiumService = {
     }
 
     logger.info(
-      `[Premium] User ${userId} activated Takeoff Boost. ${updatedWallet.boostsRemaining} remaining.`,
+      {
+        userId,
+        feature: "boosts",
+        boostsRemaining: updatedWallet.boostsRemaining,
+        addOnBoostsRemaining: updatedWallet.addOnBoostsRemaining,
+      },
+      "takeoff boost activated",
     );
 
     await cacheUtils.invalidateUserDiscoveryCache(userId);
@@ -135,7 +146,8 @@ export const premiumService = {
 
       if (expiredUsers.length > 0) {
         logger.info(
-          `[Premium] Deactivated expired boosts for ${expiredUsers.length} users.`,
+          { expiredBoostCount: expiredUsers.length },
+          "deactivated expired boosts",
         );
         await Promise.all(
           expiredUsers.map(async (u) => {

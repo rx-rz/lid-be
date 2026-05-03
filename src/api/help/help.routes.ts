@@ -1,7 +1,12 @@
 import { Elysia, t } from "elysia";
 import { helpRepo } from "../../repo/help.repo";
+import {
+  rateLimitPresets,
+  routeRateLimit,
+} from "../../config/rate-limits";
 
 export const helpRoutes = new Elysia({ prefix: "/get-help" })
+  .use(routeRateLimit(rateLimitPresets.public))
   .get("/", () => helpRepo.findAll(), { detail: { tags: ["Support"] } })
   .post(
     "/",

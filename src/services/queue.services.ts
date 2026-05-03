@@ -15,7 +15,7 @@ export const emailWorker = new Worker(
     if (name === "send-mail") {
       // Send the email to sendgrid
       // await sgMail.send(data);
-      logger.info({ data }, "[Queue] Email sent successfully");
+      logger.info({ data, queue: QUEUE_NAME }, "email job processed");
     }
   },
   {
@@ -33,9 +33,12 @@ const queueEvents = new QueueEvents(QUEUE_NAME, {
 });
 
 queueEvents.on("completed", ({ jobId }) => {
-  logger.info(`[Queue] Job ${jobId} completed`);
+  logger.info({ jobId, queue: QUEUE_NAME }, "queue job completed");
 });
 
 queueEvents.on("failed", ({ jobId, failedReason }) => {
-  logger.error(`[Queue] Job ${jobId} failed: ${failedReason}`);
+  logger.error(
+    { jobId, queue: QUEUE_NAME, failedReason },
+    "queue job failed",
+  );
 });

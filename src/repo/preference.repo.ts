@@ -7,12 +7,22 @@ export const preferenceRepo = {
     userId: string,
     data: Partial<typeof preferencesTable.$inferInsert>,
   ) => {
-    const [updatedPreference] = await db
-      .update(preferencesTable)
-      .set(data)
-      .where(eq(preferencesTable.userId, userId))
+    const [preference] = await db
+      .insert(preferencesTable)
+      .values({
+        ...data,
+        userId,
+      })
+      .onConflictDoUpdate({
+        target: preferencesTable.userId,
+        set: {
+          ...data,
+          updatedAt: new Date(),
+        },
+      })
       .returning();
-    return updatedPreference;
+
+    return preference;
   },
 
   getPreferenceByIdOrUserId: async (userId: string) => {

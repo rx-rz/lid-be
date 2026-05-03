@@ -24,19 +24,19 @@ const PLANS: PlanDefinition[] = [
   {
     name: "Diaspora: Premium",
     tier: "premium",
-    price: 1999,
+    price: 1499,
     interval: "month",
   },
   {
     name: "Diaspora: First Class",
     tier: "first-class",
-    price: 3999,
+    price: 2499,
     interval: "month",
   },
   {
     name: "Diaspora: Weekender",
     tier: "weekender",
-    price: 1499,
+    price: 999,
     interval: "week",
   },
 ];

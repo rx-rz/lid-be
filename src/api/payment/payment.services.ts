@@ -1,5 +1,6 @@
 import { stripeService } from "../../services/stripe.services"; 
 import { paymentRepo } from "../../repo/payment.repo"; 
+import { ADD_ON_PACKS } from "../../constants/addons";
 
 export const paymentService = {
   getPlans: async () => {
@@ -40,6 +41,29 @@ export const paymentService = {
       );
 
     return { subscriptionId, clientSecret };
+  },
+
+  getAddons: async () => ADD_ON_PACKS,
+
+  createAddonCheckout: async (
+    userId: string,
+    packId: string,
+    successUrl?: string,
+    cancelUrl?: string,
+  ) => {
+    const paymentRecord = await paymentRepo.getCustomerByUserId(userId);
+
+    if (!paymentRecord || !paymentRecord.stripeCustomerId) {
+      throw new Error("USER_NO_CUSTOMER_ID");
+    }
+
+    return await stripeService.createAddonCheckoutSession({
+      userId,
+      customerId: paymentRecord.stripeCustomerId,
+      packId,
+      successUrl,
+      cancelUrl,
+    });
   },
 
   getPaymentStatus: async (userId: string) => {

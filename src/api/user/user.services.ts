@@ -9,6 +9,7 @@ import { preferenceRepo } from "../../repo/preference.repo";
 import { blockService } from "../block/block.services";
 import { premiumService } from "../premium/premium.services";
 import { profileRepo } from "../../repo/profile.repo";
+import { entitlementService } from "../../services/entitlements";
 
 import {
   getCountryDetailsFromAbbr,
@@ -258,6 +259,31 @@ const rankUsers = (users: ProcessedUser[]): ProcessedUser[] => {
   });
 };
 
+const BASIC_DISCOVERY_FILTERS = new Set<keyof GetUsersFilters>([
+  "currentUserId",
+  "blockedUserIds",
+  "cursor",
+  "limit",
+  "gender",
+  "country",
+]);
+
+const downgradeAdvancedFilters = (
+  filters: GetUsersFilters,
+): GetUsersFilters => {
+  const downgraded: GetUsersFilters = {
+    currentUserId: filters.currentUserId,
+  };
+
+  for (const key of BASIC_DISCOVERY_FILTERS) {
+    if (filters[key] !== undefined) {
+      (downgraded as any)[key] = filters[key];
+    }
+  }
+
+  return downgraded;
+};
+
 /**
  * -----------------------------
  * SERVICE
@@ -323,6 +349,15 @@ export const userService = {
     ageRange: number[],
     minPhotos?: number,
   ) => {
+    const currentUser = await userRepo.getUserById(currentUserId);
+    const canUseAdvancedFilters = entitlementService.hasAdvancedFilters(
+      currentUser?.subscriptionType,
+    );
+    const effectiveFilters = canUseAdvancedFilters
+      ? filters
+      : downgradeAdvancedFilters(filters);
+    const effectiveMinPhotos = canUseAdvancedFilters ? minPhotos : undefined;
+
     // STEP 1: origin
     const currentLocation = await userRepo.getUserLocation(currentUserId);
     if (!currentLocation?.latitude || !currentLocation?.longitude) {
@@ -344,7 +379,7 @@ export const userService = {
     const blockedUserIds = await blockService.getBlockedIds(currentUserId);
 
     const fetched = await userRepo.findUsersWithFilters({
-      ...filters,
+      ...effectiveFilters,
       currentUserId,
       blockedUserIds,
     });
@@ -359,7 +394,7 @@ export const userService = {
     const processed: ProcessedUser[] = [];
 
     for (const user of rawUsers) {
-      if (!isUserEligible(user, ageRange, minPhotos)) continue;
+      if (!isUserEligible(user, ageRange, effectiveMinPhotos)) continue;
 
       const lat = parseFloat(user.latitude!);
       const lng = parseFloat(user.longitude!);
@@ -384,7 +419,10 @@ export const userService = {
 
       const baseVisibilityScore = calculateVisibilityScore(user) * boost;
 
-      const advancedScore = calculateAdvancedFilterScore(user, filters);
+      const advancedScore = calculateAdvancedFilterScore(
+        user,
+        effectiveFilters,
+      );
 
       processed.push({
         ...user,

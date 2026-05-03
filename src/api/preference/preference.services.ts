@@ -1,32 +1,32 @@
 import { InternalServerError, NotFoundError } from "elysia";
 import { preferenceRepo } from "../../repo/preference.repo";
+import { loggers } from "../../utils/logger";
 
 export const preferenceService = {
   create: async (userId: string, data: any) => {
-    const existingPreference =
-      await preferenceRepo.getPreferenceByIdOrUserId(userId);
+    try {
+      const sanitized = {
+        ...data,
+        interests: data.interests ?? [],
+        lookingToDate: data.lookingToDate ?? [],
+        ethnicity: data.ethnicity ?? [],
+        language: data.language ?? [],
+      };
 
-    if (!existingPreference) {
-      throw new NotFoundError(
-        "Cannot create preferences: User does not exist.",
+      const preference = await preferenceRepo.upsertPreference(
+        userId,
+        sanitized,
       );
+
+      if (!preference) {
+        throw new InternalServerError("Failed to create user preferences.");
+      }
+
+      return preference;
+    } catch (err) {
+      loggers.preference.error({ err, userId }, "failed to create preference");
+      throw err;
     }
-
-    const sanitized = {
-      ...data,
-      interests: data.interests ?? [],
-      lookingToDate: data.lookingToDate ?? [],
-      ethnicity: data.ethnicity ?? [],
-      language: data.language ?? [],
-    };
-console.log("Sanitized preference data:", sanitized);
-    const preference = await preferenceRepo.upsertPreference(userId, sanitized);
-
-    if (!preference) {
-      throw new InternalServerError("Failed to create user preferences.");
-    }
-
-    return preference;
   },
 
   update: async (userId: string, data: any) => {

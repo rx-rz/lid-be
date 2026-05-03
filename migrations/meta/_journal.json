@@ -29,6 +29,13 @@
       "when": 1777582595874,
       "tag": "0003_absurd_tyger_tiger",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1777582600000,
+      "tag": "0004_stage_5_7_entitlements",
+      "breakpoints": true
     }
   ]
 }

@@ -4,6 +4,8 @@ import { streamClient } from "../../services/stream.services";
 import { fcmAdmin } from "../../services/fcm";
 import { logger } from "../../utils/logger";
 import { userRepo } from "../../repo/user.repo";
+import { entitlementService, resolveTier } from "../../services/entitlements";
+import { premiumFeatureRepo } from "../../repo/premium.repo";
 
 
 export const streamRoutes = new Elysia({ prefix: "/stream" })
@@ -18,9 +20,50 @@ export const streamRoutes = new Elysia({ prefix: "/stream" })
   })
   .post(
     "/call",
-    ({ body }) => ({ callId: body.callId, type: body.type || "default" }),
+    async ({ body, set }) => {
+      if (body.userId) {
+        const user = await userRepo.getUserById(body.userId);
+        const allowance = entitlementService.getSubscriptionAllowance(
+          user?.subscriptionType,
+          "videoCalls",
+        );
+        await premiumFeatureRepo.ensureSubscriptionAllowances(
+          body.userId,
+          resolveTier(user?.subscriptionType),
+        );
+        const consumed = await premiumFeatureRepo.consumeFeature(
+          body.userId,
+          "videoCalls",
+          { unlimited: allowance === "unlimited" },
+        );
+
+        if (!consumed) {
+          set.status = 402;
+          return { error: "You are out of Cruise calls. Please upgrade or buy more." };
+        }
+
+        logger.info(
+          {
+            userId: body.userId,
+            feature: "videoCalls",
+            source: consumed.source,
+            remaining:
+              consumed.source === "add-on"
+                ? consumed.features.addOnVideoCallsRemaining
+                : consumed.features.videoCallsRemaining,
+          },
+          "usage consumed",
+        );
+      }
+
+      return { callId: body.callId, type: body.type || "default" };
+    },
     {
-      body: t.Object({ callId: t.String(), type: t.Optional(t.String()) }),
+      body: t.Object({
+        callId: t.String(),
+        type: t.Optional(t.String()),
+        userId: t.Optional(t.String()),
+      }),
       detail: { tags: ["Chat"], summary: "Setup call context" },
     },
   )

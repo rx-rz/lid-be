@@ -2,7 +2,7 @@
   "name": "love-in-diaspora-be",
   "version": "1.0.50",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "bun test",
     "start": "bun run src/index.ts",
     "dev": "bun run --watch src/index.ts",
     "db:generate": "bunx drizzle-kit generate",

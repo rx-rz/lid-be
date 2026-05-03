@@ -660,13 +660,62 @@ export const premiumFeaturesTable = pgTable("premium_features", {
   hasActiveCruisePass: boolean("has_active_cruise_pass")
     .default(false)
     .notNull(),
+  cruisePassExpiresAt: timestamp("cruise_pass_expires_at", {
+    withTimezone: true,
+  }),
   loveLettersRemaining: integer("love_letters_remaining").default(0).notNull(),
   recallsRemaining: integer("recalls_remaining").default(0).notNull(),
   videoCallsRemaining: integer("video_calls_remaining").default(0).notNull(),
+
+  addOnSuperlikesRemaining: integer("add_on_superlikes_remaining")
+    .default(0)
+    .notNull(),
+  addOnBoostsRemaining: integer("add_on_boosts_remaining")
+    .default(0)
+    .notNull(),
+  addOnLoveLettersRemaining: integer("add_on_love_letters_remaining")
+    .default(0)
+    .notNull(),
+  addOnRecallsRemaining: integer("add_on_recalls_remaining")
+    .default(0)
+    .notNull(),
+  addOnVideoCallsRemaining: integer("add_on_video_calls_remaining")
+    .default(0)
+    .notNull(),
+
+  subscriptionLastWeeklyResetAt: timestamp(
+    "subscription_last_weekly_reset_at",
+    { withTimezone: true },
+  ),
+  subscriptionNextWeeklyResetAt: timestamp("subscription_next_weekly_reset_at", {
+    withTimezone: true,
+  }),
+  subscriptionLastMonthlyResetAt: timestamp(
+    "subscription_last_monthly_reset_at",
+    { withTimezone: true },
+  ),
+  subscriptionNextMonthlyResetAt: timestamp(
+    "subscription_next_monthly_reset_at",
+    { withTimezone: true },
+  ),
 });
 
 export type InsertPremiumFeature = typeof premiumFeaturesTable.$inferInsert;
 export type SelectPremiumFeature = typeof premiumFeaturesTable.$inferSelect;
+
+export const stripeWebhookEventsTable = pgTable("stripe_webhook_events", {
+  eventId: text("event_id").primaryKey(),
+  eventType: text("event_type").notNull(),
+  processedAt: timestamp("processed_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
+});
+
+export type InsertStripeWebhookEvent =
+  typeof stripeWebhookEventsTable.$inferInsert;
+export type SelectStripeWebhookEvent =
+  typeof stripeWebhookEventsTable.$inferSelect;
 
 export const userActivityTable = pgTable("user_activity", {
   userId: text("user_id")

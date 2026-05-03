@@ -88,7 +88,7 @@ export const preferenceRoutes = new Elysia({ prefix: "/preference" })
   .post(
     "",
     async ({ body, set }) => {
-      const {userId, ...rest} = body;
+      const { userId, ...rest } = body;
       const data = await preferenceService.create(userId, rest);
       if (!data) throw new Error("Preference not created");
       set.status = "Created";

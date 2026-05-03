@@ -3,13 +3,25 @@ import { paymentRepo } from "../repo/payment.repo";
 import { logger } from "../utils/logger";
 import { userRepo } from "../repo/user.repo";
 import type { SubscriptionTier } from "../db/schema";
-import { sql } from "drizzle-orm"; 
 import { premiumFeatureRepo } from "../repo/premium.repo";
-import { TIER_PERMISSIONS } from "../utils/permissions";
+import { entitlementService } from "./entitlements";
+import { getAddOnPack, type AddOnType } from "../constants/addons";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: "2025-02-24.acacia",
 });
+
+const mapSubscriptionStatus = (
+  status: Stripe.Subscription.Status,
+): "active" | "pending" | "past_due" | "inactive" => {
+  if (status === "active" || status === "trialing") return "active";
+  if (status === "past_due") return "past_due";
+  if (status === "incomplete") return "pending";
+  return "inactive";
+};
+
+const shouldKeepPaidTier = (paymentStatus: ReturnType<typeof mapSubscriptionStatus>) =>
+  paymentStatus === "active" || paymentStatus === "past_due";
 
 export const stripeService = {
   createStripeCustomer: async (userId: string, email: string) => {
@@ -56,6 +68,57 @@ export const stripeService = {
     };
   },
 
+  createAddonCheckoutSession: async (data: {
+    userId: string;
+    customerId: string;
+    packId: string;
+    successUrl?: string;
+    cancelUrl?: string;
+  }) => {
+    const pack = getAddOnPack(data.packId);
+    if (!pack) throw new Error("ADDON_PACK_NOT_FOUND");
+
+    const appUrl = process.env.FRONTEND_URL || "http://localhost:3000";
+    const session = await stripe.checkout.sessions.create({
+      customer: data.customerId,
+      mode: pack.interval ? "subscription" : "payment",
+      success_url:
+        data.successUrl || `${appUrl}/settings/payments?checkout=success`,
+      cancel_url:
+        data.cancelUrl || `${appUrl}/settings/payments?checkout=cancelled`,
+      line_items: [
+        {
+          quantity: 1,
+          price_data: {
+            currency: pack.currency,
+            unit_amount: Math.round(pack.amount * 100),
+            ...(pack.interval
+              ? { recurring: { interval: pack.interval } }
+              : {}),
+            product_data: {
+              name: `Diaspora ${pack.name}`,
+              metadata: {
+                addonPackId: pack.id,
+                addonType: pack.type,
+              },
+            },
+          },
+        },
+      ],
+      metadata: {
+        userId: data.userId,
+        packId: pack.id,
+        packType: pack.type,
+        quantity: String(pack.quantity),
+      },
+    });
+
+    return {
+      sessionId: session.id,
+      url: session.url,
+    };
+  },
+
   getSubscriptionPlans: async () => {
     const prices = await stripe.prices.list({
       active: true,
@@ -78,14 +141,39 @@ export const stripeService = {
   },
 
   handleWebhookEvent: async (event: Stripe.Event) => {
-    switch (event.type) {
+    const webhookEvent = await paymentRepo.createWebhookEventIfNew(
+      event.id,
+      event.type,
+    );
+
+    if (!webhookEvent) {
+      logger.info(
+        { stripeEventId: event.id, eventType: event.type },
+        "stripe webhook event already processed",
+      );
+      return;
+    }
+
+    try {
+      switch (event.type) {
       case "payment_intent.succeeded":
-        logger.info("[Stripe] Payment intent succeeded");
+        logger.info(
+          { stripeEventId: event.id, eventType: event.type },
+          "payment intent succeeded",
+        );
         break;
 
       case "invoice.payment_succeeded": {
         const invoice = event.data.object as Stripe.Invoice;
         const subscriptionId = invoice.subscription as string;
+
+        if (!subscriptionId) {
+          logger.info(
+            { stripeEventId: event.id, eventType: event.type },
+            "invoice payment succeeded without subscription; skipping subscription sync",
+          );
+          break;
+        }
 
         const subscription = await stripe.subscriptions.retrieve(
           subscriptionId,
@@ -95,6 +183,25 @@ export const stripeService = {
 
         const lineItem = subscription.items.data[0];
         const product = lineItem.price.product as Stripe.Product;
+        const addonType = product.metadata.addonType as AddOnType | undefined;
+        if (addonType === "cruise_pass") {
+          const paymentRecord =
+            await paymentRepo.getCustomerByStripeId(customerId);
+
+          if (paymentRecord?.userId) {
+            await premiumFeatureRepo.addAddonCredits(
+              paymentRecord.userId,
+              "cruise_pass",
+              "unlimited",
+            );
+            logger.info(
+              { stripeEventId: event.id, userId: paymentRecord.userId },
+              "cruise pass renewed",
+            );
+          }
+          break;
+        }
+
         const subscriptionTier =
           (product.metadata.tier as SubscriptionTier) || "economy";
 
@@ -113,17 +220,42 @@ export const stripeService = {
             subscriptionType: subscriptionTier,
           });
 
-          const limits = TIER_PERMISSIONS[subscriptionTier];
+          const limits =
+            entitlementService.getEntitlementsForTier(subscriptionTier);
+          const resetAt = new Date();
           await premiumFeatureRepo.upsertFeatures(paymentRecord.userId, {
             superlikesRemaining: limits.superLikesPerWeek,
             boostsRemaining: limits.boostsPerWeek,
             loveLettersRemaining: limits.loveLettersPerWeek,
+            recallsRemaining:
+              limits.recallsPerWeek === "unlimited" ? 0 : limits.recallsPerWeek,
             videoCallsRemaining:
               limits.videoCalls === "unlimited" ? 0 : limits.videoCalls,
+            subscriptionLastWeeklyResetAt: resetAt,
+            subscriptionNextWeeklyResetAt: new Date(
+              resetAt.getTime() + 7 * 24 * 60 * 60 * 1000,
+            ),
+            subscriptionLastMonthlyResetAt:
+              subscriptionTier === "premium" ? resetAt : null,
+            subscriptionNextMonthlyResetAt:
+              subscriptionTier === "premium"
+                ? new Date(
+                    Date.UTC(
+                      resetAt.getUTCFullYear(),
+                      resetAt.getUTCMonth() + 1,
+                      resetAt.getUTCDate(),
+                      resetAt.getUTCHours(),
+                      resetAt.getUTCMinutes(),
+                      resetAt.getUTCSeconds(),
+                      resetAt.getUTCMilliseconds(),
+                    ),
+                  )
+                : null,
           });
 
           logger.info(
-            `[Stripe] Wallet topped up for user ${paymentRecord.userId}`,
+            { stripeEventId: event.id, userId: paymentRecord.userId, subscriptionTier },
+            "subscription wallet topped up",
           );
         }
         break;
@@ -132,44 +264,36 @@ export const stripeService = {
       case "checkout.session.completed": {
         const session = event.data.object as Stripe.Checkout.Session;
 
-    if (session.mode === "payment" && session.payment_status === "paid") {
-          const userId = session.metadata?.userId;
-          const packType = session.metadata?.packType; 
-          const quantity = Number(session.metadata?.quantity || 0); 
+        const canApplyCheckout =
+          (session.mode === "payment" && session.payment_status === "paid") ||
+          session.mode === "subscription";
 
-          if (userId && packType && quantity > 0) {
-            if (packType === "super_likes") {
-              await premiumFeatureRepo.upsertFeatures(userId, {
-                superlikesRemaining:
-                  sql`superlikes_remaining + ${quantity}` as any,
-              });
-            } else if (packType === "boosts") {
-              await premiumFeatureRepo.upsertFeatures(userId, {
-                boostsRemaining: sql`boosts_remaining + ${quantity}` as any,
-              });
-            } else if (packType === "recalls") {
-              await premiumFeatureRepo.upsertFeatures(userId, {
-                recallsRemaining: sql`recalls_remaining + ${quantity}` as any,
-              });
-            } else if (packType === "love_letters") {
-              await premiumFeatureRepo.upsertFeatures(userId, {
-                loveLettersRemaining:
-                  sql`love_letters_remaining + ${quantity}` as any,
-              });
-            } else if (packType === "cruise_calls") {
-              await premiumFeatureRepo.upsertFeatures(userId, {
-                videoCallsRemaining:
-                  sql`video_calls_remaining + ${quantity}` as any,
-              });
-            }
+        if (canApplyCheckout) {
+          const userId = session.metadata?.userId;
+          const pack = session.metadata?.packId
+            ? getAddOnPack(session.metadata.packId)
+            : undefined;
+          const packType = (pack?.type ||
+            session.metadata?.packType) as AddOnType | undefined;
+          const quantity =
+            pack?.quantity ?? Number(session.metadata?.quantity || 0);
+
+          if (
+            userId &&
+            packType &&
+            (quantity === "unlimited" || Number(quantity) > 0)
+          ) {
+            await premiumFeatureRepo.addAddonCredits(userId, packType, quantity);
             logger.info(
-              `[Stripe] Added ${quantity} ${packType} to user ${userId}`,
+              { stripeEventId: event.id, userId, packType, quantity },
+              "add-on credits applied",
             );
           }
         }
         break;
       }
 
+      case "customer.subscription.created":
       case "customer.subscription.updated": {
         const subscription = event.data.object as Stripe.Subscription;
         const customerId = subscription.customer as string;
@@ -181,21 +305,39 @@ export const stripeService = {
 
         const lineItem = expandedSub.items.data[0];
         const product = lineItem.price.product as Stripe.Product;
+        const addonType = product.metadata.addonType as AddOnType | undefined;
+        if (addonType === "cruise_pass") {
+          const paymentRecord =
+            await paymentRepo.getCustomerByStripeId(customerId);
+
+          if (paymentRecord?.userId) {
+            if (
+              subscription.status === "canceled" ||
+              subscription.status === "unpaid"
+            ) {
+              await premiumFeatureRepo.clearCruisePass(paymentRecord.userId);
+            } else {
+              await premiumFeatureRepo.addAddonCredits(
+                paymentRecord.userId,
+                "cruise_pass",
+                "unlimited",
+              );
+            }
+          }
+          break;
+        }
+
         const subscriptionTier =
           (product.metadata.tier as SubscriptionTier) || "economy";
           
-        let paymentStatus: any = "active";
-        if (subscription.status === "past_due") paymentStatus = "past_due";
-        if (
-          subscription.status === "unpaid" ||
-          subscription.status === "canceled"
-        )
-          paymentStatus = "inactive";
+        const paymentStatus = mapSubscriptionStatus(subscription.status);
+        const effectiveTier = shouldKeepPaidTier(paymentStatus)
+          ? subscriptionTier
+          : "economy";
 
         await paymentRepo.updateStatusByCustomerId(customerId, {
           paymentStatus,
-          subscriptionType:
-            paymentStatus === "inactive" ? "economy" : subscriptionTier,
+          subscriptionType: effectiveTier,
           nextBillingDate: new Date(subscription.current_period_end * 1000),
           lastUpdated: new Date(),
         });
@@ -204,23 +346,72 @@ export const stripeService = {
           await paymentRepo.getCustomerByStripeId(customerId);
         if (paymentRecord?.userId) {
           await userRepo.updateUser(paymentRecord.userId, {
-            subscriptionType:
-              paymentStatus === "inactive" ? "economy" : subscriptionTier,
+            subscriptionType: effectiveTier,
           });
+          if (!shouldKeepPaidTier(paymentStatus)) {
+            await premiumFeatureRepo.clearSubscriptionAllowances(
+              paymentRecord.userId,
+            );
+          }
           logger.info(
-            `[Stripe] Synced subscription.updated for user ${paymentRecord.userId}. Tier: ${subscriptionTier}`,
+            {
+              stripeEventId: event.id,
+              userId: paymentRecord.userId,
+              subscriptionTier,
+              paymentStatus,
+            },
+            "subscription update synced",
           );
         }
         break;
       }
 
       case "invoice.created":
-        logger.info("[Stripe] Invoice created");
+        logger.info(
+          { stripeEventId: event.id, eventType: event.type },
+          "invoice created",
+        );
         break;
+
+      case "invoice.payment_failed": {
+        const invoice = event.data.object as Stripe.Invoice;
+        const customerId = invoice.customer as string | undefined;
+
+        if (customerId) {
+          await paymentRepo.updateStatusByCustomerId(customerId, {
+            paymentStatus: "past_due",
+            lastUpdated: new Date(),
+          });
+        }
+
+        logger.warn(
+          { stripeEventId: event.id, eventType: event.type, customerId },
+          "invoice payment failed",
+        );
+        break;
+      }
 
       case "customer.subscription.deleted": {
         const deletedSubscription = event.data.object as Stripe.Subscription;
         const deletedCustomerId = deletedSubscription.customer as string;
+        const expandedSub = await stripe.subscriptions.retrieve(
+          deletedSubscription.id,
+          { expand: ["items.data.price.product"] },
+        );
+        const deletedProduct = expandedSub.items.data[0]?.price
+          .product as Stripe.Product | undefined;
+        const addonType = deletedProduct?.metadata.addonType as
+          | AddOnType
+          | undefined;
+
+        if (addonType === "cruise_pass") {
+          const paymentRecord =
+            await paymentRepo.getCustomerByStripeId(deletedCustomerId);
+          if (paymentRecord?.userId) {
+            await premiumFeatureRepo.clearCruisePass(paymentRecord.userId);
+          }
+          break;
+        }
 
         await paymentRepo.updateStatusByCustomerId(deletedCustomerId, {
           paymentStatus: "inactive",
@@ -234,13 +425,25 @@ export const stripeService = {
           await userRepo.updateUser(paymentRecord.userId, {
             subscriptionType: "economy",
           });
+          await premiumFeatureRepo.clearSubscriptionAllowances(
+            paymentRecord.userId,
+          );
           logger.info(
-            `[Stripe] Downgraded user ${paymentRecord.userId} to economy`,
+            { stripeEventId: event.id, userId: paymentRecord.userId, subscriptionTier: "economy" },
+            "subscription deleted; user downgraded",
           );
         }
 
         break;
       }
+    }
+      await paymentRepo.markWebhookEventProcessed(event.id);
+    } catch (error) {
+      logger.error(
+        { err: error, stripeEventId: event.id, eventType: event.type },
+        "stripe webhook processing failed",
+      );
+      throw error;
     }
   },
 };

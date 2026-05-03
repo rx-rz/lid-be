@@ -2,6 +2,7 @@ import { eq } from "drizzle-orm";
 import { db } from "../../db/db";
 import { preferencesTable } from "../../db/schema";
 import { rouletteRepo } from "../../repo/roulette.repo";
+import { loggers } from "../../utils/logger";
 
 const MATCH_DURATION_MS = 2 * 60 * 1000;
 const REMATCH_PREVENTION_COUNT = 5;
@@ -55,9 +56,12 @@ const scheduleMatchEnd = (matchId: string, endTime: Date) => {
   setTimeout(async () => {
     try {
       await rouletteService.endSession(matchId);
-      console.log(`Match ${matchId} automatically ended as scheduled.`);
+      loggers.roulette.info({ matchId }, "scheduled roulette match ended");
     } catch (error) {
-      console.error(`Failed to end match ${matchId}:`, error);
+      loggers.roulette.error(
+        { err: error, matchId },
+        "failed to end scheduled roulette match",
+      );
     }
   }, timeUntilEnd);
 };

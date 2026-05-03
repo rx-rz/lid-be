@@ -12,7 +12,7 @@ import {
   matchesTable,
 } from "../db/schema";
 import type { SubscriptionTier, Gender, OnboardingPage } from "../db/schema";
-import { TIER_PERMISSIONS } from "../utils/permissions";
+import { entitlementService } from "../services/entitlements";
 
 const GENDERS: Gender[] = ["MAN", "WOMAN", "NONBINARY"];
 const SUBSCRIPTIONS: SubscriptionTier[] = [
@@ -186,8 +186,7 @@ export const runSeeder = async (targetUserCount = 100) => {
           });
 
           // 3. Insert Premium Limits (Safe Parsing for "unlimited")
-          const limits =
-            TIER_PERMISSIONS[subTier] || TIER_PERMISSIONS["economy"];
+          const limits = entitlementService.getEntitlementsForTier(subTier);
           await db.insert(premiumFeaturesTable).values({
             userId: clerkId,
             superlikesRemaining: parseLimit(limits.superLikesPerWeek),

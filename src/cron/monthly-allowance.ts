@@ -5,16 +5,12 @@ import type { SubscriptionTier } from "../db/schema";
 import { logger } from "../utils/logger";
 import { premiumFeatureRepo } from "../repo/premium.repo";
 
-export const runWeeklyAllowanceTopUp = async () => {
-  logger.info("starting weekly premium features top-up");
+export const runMonthlyAllowanceReset = async () => {
+  logger.info("starting monthly premium allowance reset");
 
-  const paidTiers: SubscriptionTier[] = [
-    "premium",
-    "first-class",
-    "weekender",
-  ];
+  const monthlyTiers: SubscriptionTier[] = ["premium"];
 
-  for (const tier of paidTiers) {
+  for (const tier of monthlyTiers) {
     try {
       const usersInTier = await db
         .select({ id: usersTable.id })
@@ -24,26 +20,28 @@ export const runWeeklyAllowanceTopUp = async () => {
       const userIds = usersInTier.map((u) => u.id);
 
       if (userIds.length === 0) {
-        logger.info({ tier }, "no users found for tier; skipping");
+        logger.info({ tier }, "no users found for monthly reset; skipping");
         continue;
       }
 
       await premiumFeatureRepo.resetSubscriptionAllowances(
         userIds,
         tier,
-        "weekly",
+        "monthly",
       );
 
-      logger.info({ tier, userCount: userIds.length }, "tier users reset");
+      logger.info(
+        { tier, userCount: userIds.length },
+        "monthly allowances reset",
+      );
     } catch (error) {
-      logger.error({ err: error, tier }, "error topping up tier");
+      logger.error({ err: error, tier }, "error resetting monthly allowances");
     }
   }
 
-  logger.info("weekly top-up complete");
+  logger.info("monthly allowance reset complete");
 };
 
-// If running this file directly via a cron scheduler (like Heroku Scheduler or node-cron)
 if (require.main === module) {
-  runWeeklyAllowanceTopUp().then(() => process.exit(0));
+  runMonthlyAllowanceReset().then(() => process.exit(0));
 }

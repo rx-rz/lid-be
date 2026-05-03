@@ -4,16 +4,14 @@ import { userRepo } from "../../repo/user.repo";
 import { fcmAdmin } from "../../services/fcm";
 import { logger } from "../../utils/logger";
 import { getAge } from "../user/user.services";
-import type { SubscriptionTier } from "../../db/schema";
-import { TIER_PERMISSIONS } from "../../utils/permissions";
 import { premiumFeatureRepo } from "../../repo/premium.repo";
+import { entitlementService, resolveTier } from "../../services/entitlements";
 
 const enforceSwipeLimit = async (
   userId: string,
   subscriptionType: string | null,
 ) => {
-  const tier = (subscriptionType as SubscriptionTier) || "economy";
-  const limit = TIER_PERMISSIONS[tier].dailySwipes;
+  const limit = entitlementService.getDailySwipeLimit(subscriptionType);
 
   if (limit !== "unlimited") {
     await interactionRepo.checkAndIncrementSwipeLimit(userId, limit);
@@ -51,7 +49,7 @@ export const sendLikeNotification = async (
       },
       token: targetFcmToken,
     });
-    logger.info(`Like push notification sent successfully`);
+    logger.info({ notificationType: "like" }, "push notification sent");
   } catch (err) {
     logger.error({ err }, "[Interaction] Error sending FCM like notification");
   }
@@ -71,7 +69,7 @@ export const sendMatchNotification = async (
       },
       token: targetFcmToken,
     });
-    logger.info(`Match push notification sent successfully`);
+    logger.info({ notificationType: "match" }, "push notification sent");
   } catch (err) {
     logger.error({ err }, "[Interaction] Error sending FCM match notification");
   }
@@ -101,10 +99,22 @@ export const interactionService = {
     }
 
     if (superLike) {
+      await premiumFeatureRepo.ensureSubscriptionAllowances(
+        likerId,
+        resolveTier(likerExists.subscription),
+      );
       const updatedWallet = await premiumFeatureRepo.useSuperLike(likerId);
       if (!updatedWallet) {
         throw new Error("INSUFFICIENT_SUPERLIKES");
       }
+      logger.info(
+        {
+          userId: likerId,
+          feature: "superlikes",
+          remaining: updatedWallet.superlikesRemaining,
+        },
+        "usage consumed",
+      );
     }
 
     await enforceSwipeLimit(likerId, likerExists.subscription);
@@ -206,8 +216,12 @@ export const interactionService = {
   },
 
   getReceivedLikes: async (userId: string) => {
+    const user = await userRepo.getUserById(userId);
+    const limit = entitlementService.getMyLikesLimit(user?.subscriptionType);
     const receivedLikes = await interactionRepo.getReceivedLikes(userId);
-    return receivedLikes.map(formatUserWithAge);
+    const visibleLikes =
+      limit === false ? receivedLikes : receivedLikes.slice(0, limit);
+    return visibleLikes.map(formatUserWithAge);
   },
 
   getMutualLikes: async (userId: string) => {
@@ -225,6 +239,35 @@ export const interactionService = {
       throw new Error("Dislike not found or already rewound");
     }
 
+    const user = await userRepo.getUserById(dislikerId);
+    const recallAllowance = entitlementService.getSubscriptionAllowance(
+      user?.subscriptionType,
+      "recalls",
+    );
+
+    if (recallAllowance === "unlimited") {
+      await interactionRepo.deleteDislike(dislikerId, dislikedId);
+
+      logger.info(
+        {
+          dislikerId,
+          dislikedId,
+          recallsRemaining: 0,
+        },
+        "dislike rewound",
+      );
+
+      return {
+        success: true,
+        message: "Successfully rewound dislike",
+        recallsRemaining: 0,
+      };
+    }
+
+    await premiumFeatureRepo.ensureSubscriptionAllowances(
+      dislikerId,
+      resolveTier(user?.subscriptionType),
+    );
     const updatedWallet = await premiumFeatureRepo.useRecall(dislikerId);
     if (!updatedWallet) {
       throw new Error("INSUFFICIENT_RECALLS");
@@ -233,7 +276,12 @@ export const interactionService = {
     await interactionRepo.deleteDislike(dislikerId, dislikedId);
 
     logger.info(
-      `[Interaction] User ${dislikerId} rewound dislike for ${dislikedId}. ${updatedWallet.recallsRemaining} recalls left.`,
+      {
+        dislikerId,
+        dislikedId,
+        recallsRemaining: updatedWallet.recallsRemaining,
+      },
+      "dislike rewound",
     );
 
     return {

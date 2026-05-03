@@ -1,5 +1,9 @@
 import { Elysia, t } from "elysia";
 import { interactionService } from "./interaction.services";
+import {
+  rateLimitPresets,
+  routeRateLimit,
+} from "../../config/rate-limits";
 
 const InteractionUserSchema = t.Nullable(
   t.Object({
@@ -24,6 +28,7 @@ const LikesListSchema = t.Array(
 const ErrorSchema = t.Object({ error: t.String() });
 
 export const interactionRoutes = new Elysia({ name: "routes.interaction" })
+  .use(routeRateLimit(rateLimitPresets.interactions))
   .post(
     "/likes",
     async ({ body, set }) => {

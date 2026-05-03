@@ -1,6 +1,6 @@
   import { eq } from "drizzle-orm";
   import { db } from "../db/db";
-  import { paymentsTable } from "../db/schema";
+  import { paymentsTable, stripeWebhookEventsTable } from "../db/schema";
   export const paymentRepo = {
     createCustomerRecord: async (userId: string, stripeCustomerId: string) => {
       const [record] = await db
@@ -52,6 +52,26 @@
         .set(data)
         .where(eq(paymentsTable.stripeCustomerId, stripeCustomerId))
         .returning();
+      return record;
+    },
+
+    createWebhookEventIfNew: async (eventId: string, eventType: string) => {
+      const [record] = await db
+        .insert(stripeWebhookEventsTable)
+        .values({ eventId, eventType })
+        .onConflictDoNothing()
+        .returning();
+
+      return record;
+    },
+
+    markWebhookEventProcessed: async (eventId: string) => {
+      const [record] = await db
+        .update(stripeWebhookEventsTable)
+        .set({ processedAt: new Date() })
+        .where(eq(stripeWebhookEventsTable.eventId, eventId))
+        .returning();
+
       return record;
     },
   };
