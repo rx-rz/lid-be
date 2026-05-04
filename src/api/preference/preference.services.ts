@@ -1,6 +1,6 @@
-import { InternalServerError, NotFoundError } from "elysia";
 import { preferenceRepo } from "../../repo/preference.repo";
 import { loggers } from "../../utils/logger";
+import { InternalServerError, NotFoundError } from "../../middleware/error";
 
 export const preferenceService = {
   create: async (userId: string, data: any) => {

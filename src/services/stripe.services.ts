@@ -6,6 +6,7 @@ import type { SubscriptionTier } from "../db/schema";
 import { premiumFeatureRepo } from "../repo/premium.repo";
 import { entitlementService } from "./entitlements";
 import { getAddOnPack, type AddOnType } from "../constants/addons";
+import { InternalServerError, NotFoundError } from "../middleware/error";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: "2025-02-24.acacia",
@@ -59,7 +60,9 @@ export const stripeService = {
     const paymentIntent = invoice.payment_intent as Stripe.PaymentIntent;
 
     if (!paymentIntent?.client_secret) {
-      throw new Error("Payment intent is missing client secret");
+      throw new InternalServerError("Payment intent is missing client secret.", {
+        code: "STRIPE_PAYMENT_INTENT_MISSING_CLIENT_SECRET",
+      });
     }
 
     return {
@@ -74,9 +77,13 @@ export const stripeService = {
     packId: string;
     successUrl?: string;
     cancelUrl?: string;
-  }) => {
+    }) => {
     const pack = getAddOnPack(data.packId);
-    if (!pack) throw new Error("ADDON_PACK_NOT_FOUND");
+    if (!pack) {
+      throw new NotFoundError("Add-on pack not found.", {
+        code: "ADDON_PACK_NOT_FOUND",
+      });
+    }
 
     const appUrl = process.env.FRONTEND_URL || "http://localhost:3000";
     const session = await stripe.checkout.sessions.create({

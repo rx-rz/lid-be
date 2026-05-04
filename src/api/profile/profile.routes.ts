@@ -1,22 +1,19 @@
 import { Elysia, t } from "elysia";
 import { profileService } from "./profile.services";
+import { InternalServerError, NotFoundError } from "../../middleware/error";
 
 export const profileRoutes = new Elysia({ prefix: "/profile" })
   .post(
     "",
     async ({ body, set }) => {
-      try {
-        const profile = await profileService.createProfile(
-          body.userId,
-          body.bio,
-          body.interests,
-        );
-        set.status = 201;
-        return profile;
-      } catch (error: any) {
-        set.status = 400;
-        return { error: error.message || "Failed to create profile" };
-      }
+      const profile = await profileService.createProfile(
+        body.userId,
+        body.bio,
+        body.interests,
+      );
+      if (!profile) throw new InternalServerError("Failed to create profile.");
+      set.status = 201;
+      return profile;
     },
     {
       body: t.Object({
@@ -33,11 +30,12 @@ export const profileRoutes = new Elysia({ prefix: "/profile" })
   )
   .get(
     "/:userId",
-    async ({ params: { userId }, set }) => {
+    async ({ params: { userId } }) => {
       const profile = await profileService.getProfile(userId);
       if (!profile) {
-        set.status = 404;
-        return { error: "Profile not found" };
+        throw new NotFoundError("Profile not found.", {
+          code: "PROFILE_NOT_FOUND",
+        });
       }
       return profile;
     },
@@ -53,15 +51,16 @@ export const profileRoutes = new Elysia({ prefix: "/profile" })
   )
   .put(
     "/:userId",
-    async ({ params: { userId }, body, set }) => {
+    async ({ params: { userId }, body }) => {
       const profile = await profileService.updateProfile(
         userId,
         body.bio,
         body.interests,
       );
       if (!profile) {
-        set.status = 404;
-        return { error: "Profile not found" };
+        throw new NotFoundError("Profile not found.", {
+          code: "PROFILE_NOT_FOUND",
+        });
       }
       return profile;
     },
@@ -80,11 +79,12 @@ export const profileRoutes = new Elysia({ prefix: "/profile" })
   )
   .delete(
     "/:userId",
-    async ({ params: { userId }, set }) => {
+    async ({ params: { userId } }) => {
       const profile = await profileService.deleteProfile(userId);
       if (!profile) {
-        set.status = 404;
-        return { error: "Profile not found" };
+        throw new NotFoundError("Profile not found.", {
+          code: "PROFILE_NOT_FOUND",
+        });
       }
       return { success: true };
     },

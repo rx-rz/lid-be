@@ -4,11 +4,7 @@ import { reportService } from "./report.services";
 export const reportRoutes = new Elysia()
   .post(
     "/report",
-    ({ body, set }) =>
-      reportService.create(body).catch((err) => {
-        set.status = 400;
-        return { error: err.message };
-      }),
+    ({ body }) => reportService.create(body),
     {
       body: t.Object({
         reporterId: t.String(),

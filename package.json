@@ -9,6 +9,8 @@
     "db:migrate": "bun src/db/migrate.ts",
     "stripe:sync-plans": "bun src/scripts/sync-script.ts",
     "db:seed": "bun src/db/seeder.ts",
+    "db:seed:reset": "bun src/db/seeder.ts --reset",
+    "db:seed:small": "bun src/db/seeder.ts --count 12",
     "db:push": "bunx drizzle-kit push"
   },
   "dependencies": {

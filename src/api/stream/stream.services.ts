@@ -1,10 +1,13 @@
 import { StreamClient } from "@stream-io/node-sdk";
+import { InternalServerError } from "../../middleware/error";
 
 const apiKey = process.env.STREAM_API_KEY;
 const secret = process.env.STREAM_API_SECRET;
 
 if (!apiKey || !secret) {
-  throw new Error("Stream configuration missing");
+  throw new InternalServerError("Stream configuration missing.", {
+    code: "STREAM_CONFIGURATION_MISSING",
+  });
 }
 
 const client = new StreamClient(apiKey, secret);

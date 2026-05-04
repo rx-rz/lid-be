@@ -1,6 +1,7 @@
-import { stripeService } from "../../services/stripe.services"; 
-import { paymentRepo } from "../../repo/payment.repo"; 
 import { ADD_ON_PACKS } from "../../constants/addons";
+import { BadRequestError, NotFoundError } from "../../middleware/error";
+import { paymentRepo } from "../../repo/payment.repo";
+import { stripeService } from "../../services/stripe.services";
 
 export const paymentService = {
   getPlans: async () => {
@@ -29,8 +30,10 @@ export const paymentService = {
   createPaymentIntent: async (userId: string, priceId: string) => {
     const paymentRecord = await paymentRepo.getCustomerByUserId(userId);
 
-    if (!paymentRecord || !paymentRecord.stripeCustomerId) {
-      throw new Error("USER_NO_CUSTOMER_ID");
+    if (!paymentRecord?.stripeCustomerId) {
+      throw new BadRequestError("User has no Stripe customer ID.", {
+        code: "USER_NO_CUSTOMER_ID",
+      });
     }
 
     const { subscriptionId, clientSecret } =
@@ -53,8 +56,10 @@ export const paymentService = {
   ) => {
     const paymentRecord = await paymentRepo.getCustomerByUserId(userId);
 
-    if (!paymentRecord || !paymentRecord.stripeCustomerId) {
-      throw new Error("USER_NO_CUSTOMER_ID");
+    if (!paymentRecord?.stripeCustomerId) {
+      throw new BadRequestError("User has no Stripe customer ID.", {
+        code: "USER_NO_CUSTOMER_ID",
+      });
     }
 
     return await stripeService.createAddonCheckoutSession({
@@ -70,7 +75,9 @@ export const paymentService = {
     const paymentRecord = await paymentRepo.getCustomerByUserId(userId);
 
     if (!paymentRecord) {
-      throw new Error("PAYMENT_RECORD_NOT_FOUND");
+      throw new NotFoundError("Payment record not found.", {
+        code: "PAYMENT_RECORD_NOT_FOUND",
+      });
     }
 
     return {
@@ -83,8 +90,10 @@ export const paymentService = {
   getCustomer: async (userId: string) => {
     const paymentRecord = await paymentRepo.getCustomerByUserId(userId);
 
-    if (!paymentRecord || !paymentRecord.stripeCustomerId) {
-      throw new Error("CUSTOMER_NOT_FOUND");
+    if (!paymentRecord?.stripeCustomerId) {
+      throw new NotFoundError("Customer not found.", {
+        code: "CUSTOMER_NOT_FOUND",
+      });
     }
 
     return { customerId: paymentRecord.stripeCustomerId };

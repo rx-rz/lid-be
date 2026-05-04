@@ -1,0 +1,358 @@
+{
+  "baseUrl": "http://localhost:8000/api/v1",
+  "seedUsers": [
+    {
+      "id": "seed_amina",
+      "email": "seed.amina@loveindiaspora.test",
+      "tier": "premium"
+    },
+    {
+      "id": "seed_kwame",
+      "email": "seed.kwame@loveindiaspora.test",
+      "tier": "first-class"
+    },
+    {
+      "id": "seed_zara",
+      "email": "seed.zara@loveindiaspora.test",
+      "tier": "economy"
+    },
+    {
+      "id": "seed_chidi",
+      "email": "seed.chidi@loveindiaspora.test",
+      "tier": "weekender"
+    },
+    {
+      "id": "seed_nala",
+      "email": "seed.nala@loveindiaspora.test",
+      "tier": "premium"
+    },
+    {
+      "id": "seed_tomi",
+      "email": "seed.tomi@loveindiaspora.test",
+      "tier": "economy"
+    }
+  ],
+  "requests": [
+    {
+      "name": "Create a new user shell",
+      "method": "POST",
+      "path": "/user",
+      "body": {
+        "clerkId": "seed_manual_user",
+        "phone": "+15550009999"
+      }
+    },
+    {
+      "name": "Update seeded user onboarding profile",
+      "method": "PATCH",
+      "path": "/user/seed_amina",
+      "body": {
+        "displayName": "Amina Updated",
+        "email": "seed.amina.updated@loveindiaspora.test",
+        "birthday": "1996-04-18",
+        "gender": "WOMAN",
+        "subscriptionType": "premium",
+        "onboardingPage": "AddPhotos",
+        "showGender": true,
+        "lastLogin": "2026-05-04T12:00:00.000Z"
+      }
+    },
+    {
+      "name": "Set stream token",
+      "method": "PATCH",
+      "path": "/user/stream/seed_amina",
+      "body": {
+        "streamToken": "stream-token-from-client"
+      }
+    },
+    {
+      "name": "Set FCM token",
+      "method": "PUT",
+      "path": "/fcm-token",
+      "body": {
+        "userId": "seed_amina",
+        "fcmToken": "fcm-token-from-device"
+      }
+    },
+    {
+      "name": "Discovery near Lagos with filters",
+      "method": "GET",
+      "path": "/users?userId=seed_amina&radius=[0,150]&age=[22,40]&gender=WOMAN&minPhotos=2"
+    },
+    {
+      "name": "Create profile",
+      "method": "POST",
+      "path": "/profile",
+      "body": {
+        "userId": "seed_manual_user",
+        "bio": "Diaspora builder looking for intentional connection.",
+        "interests": ["travel", "afrobeats", "cooking"]
+      }
+    },
+    {
+      "name": "Update profile",
+      "method": "PUT",
+      "path": "/profile/seed_amina",
+      "body": {
+        "bio": "Updated bio from endpoint smoke test.",
+        "interests": ["afrobeats", "travel", "startups", "film"]
+      }
+    },
+    {
+      "name": "Create preferences",
+      "method": "POST",
+      "path": "/preference",
+      "body": {
+        "userId": "seed_manual_user",
+        "interests": ["travel", "books", "fitness"],
+        "lookingToDate": ["MAN", "NONBINARY"],
+        "language": ["English", "Yoruba"],
+        "ethnicity": ["Black"],
+        "pronouns": "She/Her",
+        "zodiac": "Aries",
+        "bio": "Testing full preference creation.",
+        "whyHere": "Long-term relationship",
+        "smoking": false,
+        "drinking": true,
+        "religion": "Christianity",
+        "education": "Masters",
+        "pets": "Dog",
+        "age": "24-38",
+        "distance": "100",
+        "familyPlans": "Want kids",
+        "gender": "WOMAN",
+        "height": "168cm",
+        "jobTitle": "Product Manager",
+        "company": "Diaspora Labs",
+        "school": "University of Lagos",
+        "sexuality": "Straight",
+        "bodyType": "Athletic",
+        "dietaryPreference": "Omnivore",
+        "sleepingHabits": "Early bird",
+        "workoutFrequency": "Often",
+        "loveLanguage": "Quality Time",
+        "travelPlans": "Frequent flyer",
+        "personality": "Ambivert",
+        "relationshipStatus": "Single",
+        "willingToRelocate": true,
+        "opennessToLongDistance": true,
+        "hasBio": true,
+        "minNumberOfPhotos": "2",
+        "connections": "Open to serious dating"
+      }
+    },
+    {
+      "name": "Patch preferences",
+      "method": "PATCH",
+      "path": "/preference/seed_amina",
+      "body": {
+        "distance": "250",
+        "age": "25-45",
+        "opennessToLongDistance": true,
+        "lookingToDate": ["MAN", "NONBINARY"]
+      }
+    },
+    {
+      "name": "Create location",
+      "method": "POST",
+      "path": "/location/",
+      "body": {
+        "userId": "seed_manual_user",
+        "latitude": "6.5244",
+        "longitude": "3.3792"
+      }
+    },
+    {
+      "name": "Sync images",
+      "method": "POST",
+      "path": "/images",
+      "body": {
+        "userId": "seed_amina",
+        "images": [
+          {
+            "order": 1,
+            "imageUrl": "https://images.loveindiaspora.test/manual-1.jpg"
+          },
+          {
+            "order": 2,
+            "imageUrl": "https://images.loveindiaspora.test/manual-2.jpg"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Like a user",
+      "method": "POST",
+      "path": "/likes",
+      "body": {
+        "likerId": "seed_amina",
+        "likedId": "seed_zara",
+        "superLike": false
+      }
+    },
+    {
+      "name": "Super like a user",
+      "method": "POST",
+      "path": "/likes",
+      "body": {
+        "likerId": "seed_amina",
+        "likedId": "seed_generated_001",
+        "superLike": true
+      }
+    },
+    {
+      "name": "Dislike a user",
+      "method": "POST",
+      "path": "/dislikes",
+      "body": {
+        "dislikerId": "seed_kwame",
+        "dislikedId": "seed_generated_002"
+      }
+    },
+    {
+      "name": "Rewind a dislike",
+      "method": "POST",
+      "path": "/dislikes/rewind",
+      "body": {
+        "userId": "seed_amina",
+        "dislikedId": "seed_tomi"
+      }
+    },
+    {
+      "name": "Record profile view",
+      "method": "POST",
+      "path": "/profile-views/",
+      "body": {
+        "viewerId": "seed_kwame",
+        "viewedId": "seed_amina"
+      }
+    },
+    {
+      "name": "Add favorite",
+      "method": "POST",
+      "path": "/favorites/",
+      "body": {
+        "userId": "seed_amina",
+        "favoriteUserId": "seed_zara"
+      }
+    },
+    {
+      "name": "Block user",
+      "method": "POST",
+      "path": "/block/",
+      "body": {
+        "blockerId": "seed_zara",
+        "blockedId": "seed_generated_003"
+      }
+    },
+    {
+      "name": "Report user",
+      "method": "POST",
+      "path": "/report",
+      "body": {
+        "reporterId": "seed_zara",
+        "reportedId": "seed_tomi",
+        "reason": "Harassment",
+        "details": "Endpoint test report."
+      }
+    },
+    {
+      "name": "Update report status",
+      "method": "PATCH",
+      "path": "/report/REPLACE_WITH_REPORT_ID",
+      "body": {
+        "status": "reviewed"
+      }
+    },
+    {
+      "name": "Apply boost",
+      "method": "POST",
+      "path": "/boost/seed_amina"
+    },
+    {
+      "name": "Create add-on checkout",
+      "method": "POST",
+      "path": "/addons/checkout",
+      "body": {
+        "userId": "seed_amina",
+        "packId": "recall_5",
+        "successUrl": "https://app.loveindiaspora.test/success",
+        "cancelUrl": "https://app.loveindiaspora.test/cancel"
+      }
+    },
+    {
+      "name": "Create subscription intent",
+      "method": "POST",
+      "path": "/subscription",
+      "body": {
+        "userId": "seed_zara",
+        "priceId": "price_replace_with_stripe_price_id"
+      }
+    },
+    {
+      "name": "Create or get Stripe customer",
+      "method": "POST",
+      "path": "/customer",
+      "body": {
+        "userId": "seed_amina",
+        "email": "seed.amina@loveindiaspora.test"
+      }
+    },
+    {
+      "name": "Generate Stream token",
+      "method": "POST",
+      "path": "/stream/token",
+      "body": {
+        "userId": "seed_amina",
+        "name": "Amina",
+        "image": "https://images.loveindiaspora.test/amina-1.jpg",
+        "email": "seed.amina@loveindiaspora.test"
+      }
+    },
+    {
+      "name": "Create Stream call context",
+      "method": "POST",
+      "path": "/stream/call",
+      "body": {
+        "callId": "call_seed_amina_kwame",
+        "type": "default",
+        "userId": "seed_amina"
+      }
+    },
+    {
+      "name": "Start roulette",
+      "method": "POST",
+      "path": "/roulette/start",
+      "body": {
+        "userId": "seed_amina",
+        "genderPreference": "MAN"
+      }
+    },
+    {
+      "name": "End roulette by user",
+      "method": "POST",
+      "path": "/roulette/end",
+      "body": {
+        "userId": "seed_amina"
+      }
+    },
+    {
+      "name": "Cancel roulette search",
+      "method": "POST",
+      "path": "/roulette/cancel",
+      "body": {
+        "userId": "seed_amina"
+      }
+    },
+    {
+      "name": "Submit help request",
+      "method": "POST",
+      "path": "/get-help/",
+      "body": {
+        "email": "seed.amina@loveindiaspora.test",
+        "message": "I need help testing the support endpoint.",
+        "screenshot": "https://images.loveindiaspora.test/support-shot.png"
+      }
+    }
+  ]
+}

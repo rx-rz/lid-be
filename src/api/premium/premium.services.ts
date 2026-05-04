@@ -4,6 +4,7 @@ import { fcmAdmin } from "../../services/fcm";
 import { cacheUtils } from "../../utils/cache.utils";
 import { logger } from "../../utils/logger";
 import { resolveTier } from "../../services/entitlements";
+import { PaymentRequiredError } from "../../middleware/error";
 
 const sendBoostStartedNotification = async (targetFcmToken: string) => {
   if (!targetFcmToken) return;
@@ -45,7 +46,10 @@ export const premiumService = {
     const updatedWallet = await premiumFeatureRepo.useBoost(userId, 30);
 
     if (!updatedWallet) {
-      throw new Error("INSUFFICIENT_BOOSTS");
+      throw new PaymentRequiredError(
+        "You are out of Takeoff boosts. Please upgrade or buy more.",
+        { code: "INSUFFICIENT_BOOSTS" },
+      );
     }
 
     logger.info(
@@ -85,13 +89,13 @@ export const premiumService = {
       return 1;
     }
 
-    let multiplier = 3;
+    let multiplier = 6;
     if (
       premium.lastBoostedAt &&
       new Date(premium.lastBoostedAt) >
         new Date(Date.now() - 24 * 60 * 60 * 1000)
     ) {
-      multiplier = 4;
+      multiplier = 8;
     }
 
     return multiplier;
@@ -120,12 +124,12 @@ export const premiumService = {
         continue;
       }
 
-      let multiplier = 3;
+      let multiplier = 6;
       if (
         premium.lastBoostedAt &&
         new Date(premium.lastBoostedAt) > oneDayAgo
       ) {
-        multiplier = 4;
+        multiplier = 8;
       }
 
       multipliersMap[premium.userId] = multiplier;

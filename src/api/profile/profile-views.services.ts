@@ -2,16 +2,23 @@ import { profileViewsRepo } from "../../repo/profile-views.repo";
 import { userRepo } from "../../repo/user.repo";
 import { logger } from "../../utils/logger";
 import { ably } from "../../utils/websocket";
+import { BadRequestError, NotFoundError } from "../../middleware/error";
 
 export const profileViewsService = {
   recordView: async (viewerId: string, viewedId: string) => {
-    if (viewerId === viewedId) throw new Error("Cannot view your own profile");
+    if (viewerId === viewedId) {
+      throw new BadRequestError("Cannot view your own profile.", {
+        code: "INVALID_SELF_INTERACTION",
+      });
+    }
 
     const viewerExists = await userRepo.getUserDetailsById(viewerId);
     const viewedExists = await userRepo.checkUserExists(viewedId);
 
     if (!viewerExists || !viewedExists) {
-      throw new Error("One or both users not found");
+      throw new NotFoundError("One or both users not found.", {
+        code: "PROFILE_VIEW_USER_NOT_FOUND",
+      });
     }
 
     const view = await profileViewsRepo.upsertProfileView(viewerId, viewedId);
@@ -39,7 +46,11 @@ export const profileViewsService = {
     markAsSeen: boolean,
   ) => {
     const userExists = await userRepo.checkUserExists(userId);
-    if (!userExists) throw new Error("User does not exist");
+    if (!userExists) {
+      throw new NotFoundError("User does not exist.", {
+        code: "USER_NOT_FOUND",
+      });
+    }
 
     const allViews = await profileViewsRepo.getProfileViewsByUserId(userId);
 

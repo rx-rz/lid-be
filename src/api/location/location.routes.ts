@@ -1,5 +1,6 @@
 import { Elysia, t } from "elysia";
 import { locationService } from "./location.services";
+import { InternalServerError } from "../../middleware/error";
 
 export const locationRoutes = new Elysia({ prefix: "/location" }).post(
   "/",
@@ -10,8 +11,7 @@ export const locationRoutes = new Elysia({ prefix: "/location" }).post(
         body.longitude,
       );
       if (!data) {
-        set.status = 400;
-        return { error: "Location creation failed" };
+        throw new InternalServerError("Location creation failed.");
       }
       set.status = 201;
       return data;

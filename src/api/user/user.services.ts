@@ -1,5 +1,4 @@
 import { clerkClient } from "elysia-clerk";
-import { InternalServerError, NotFoundError } from "elysia";
 
 import { InsertUser } from "../../db/schema";
 import { db } from "../../db/db";
@@ -10,6 +9,12 @@ import { blockService } from "../block/block.services";
 import { premiumService } from "../premium/premium.services";
 import { profileRepo } from "../../repo/profile.repo";
 import { entitlementService } from "../../services/entitlements";
+import {
+  BadRequestError,
+  ConflictError,
+  InternalServerError,
+  NotFoundError,
+} from "../../middleware/error";
 
 import {
   getCountryDetailsFromAbbr,
@@ -73,6 +78,13 @@ export type ProcessedUser = FilteredUser & {
   baseVisibilityScore: number;
   advancedScore: number;
   totalScore: number;
+};
+
+export type PublicProcessedUser = Omit<ProcessedUser, "preferences">;
+
+export type FilteredUsersResult = {
+  users: PublicProcessedUser[];
+  nextCursor: string | null;
 };
 
 /**
@@ -170,26 +182,34 @@ const isUserEligible = (
 /**
  * Visibility score (platform-driven)
  */
-const calculateVisibilityScore = (user: FilteredUser): number => {
-  let score = 1;
+export const calculateVisibilityScore = (user: FilteredUser): number => {
+  let score = 20;
 
   const twentyFourHoursAgo = Date.now() - 24 * 60 * 60 * 1000;
+  const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
 
   if (
     user.createdAt &&
     new Date(user.createdAt).getTime() > twentyFourHoursAgo
   ) {
-    score += 1.5;
+    score += 14;
   }
 
-  if (user.onlineStatus) score += 2;
+  if (user.verified) score += 10;
+
+  if (user.onlineStatus) {
+    score += 24;
+  } else if (user.lastLogin && new Date(user.lastLogin).getTime() > sevenDaysAgo) {
+    score += 8;
+  }
 
   if (Array.isArray(user.images) && user.images.length > 0) {
-    score += 1;
+    score += 14;
+    score += Math.min((user.images.length - 1) * 3, 12);
   }
 
   if (typeof user.profile?.bio === "string" && user.profile.bio.length > 20) {
-    score += 0.5;
+    score += 8;
   }
 
   return score;
@@ -198,7 +218,7 @@ const calculateVisibilityScore = (user: FilteredUser): number => {
 /**
  * Advanced matching score (user preference-driven)
  */
-const calculateAdvancedFilterScore = (
+export const calculateAdvancedFilterScore = (
   user: FilteredUser,
   filters: GetUsersFilters,
 ): number => {
@@ -207,13 +227,13 @@ const calculateAdvancedFilterScore = (
   if (!p) return score;
 
   const matchExact = (arr?: string[], val?: string | null) =>
-    arr?.length && val && arr.includes(val) ? 1 : 0;
+    arr?.length && val && arr.includes(val) ? 3 : 0;
 
   const matchArray = (arr?: string[], vals?: string[] | null) =>
-    arr?.length && vals?.length && arr.some((f) => vals.includes(f)) ? 1 : 0;
+    arr?.length && vals?.length && arr.some((f) => vals.includes(f)) ? 3 : 0;
 
   const matchBool = (f?: boolean, v?: boolean | null) =>
-    f !== undefined && f === v ? 1 : 0;
+    f !== undefined && f === v ? 3 : 0;
 
   score += matchArray(filters.ethnicity, p.ethnicity ?? undefined);
   score += matchArray(filters.language, p.language ?? undefined);
@@ -235,16 +255,18 @@ const calculateAdvancedFilterScore = (
   score += matchExact(filters.relationshipStatus, p.relationshipStatus);
 
   if (filters.hasBio && (user.profile?.bio?.length ?? 0) > 20) {
-    score += 1;
+    score += 4;
   }
 
   return score;
 };
 
+const INCOMING_LIKE_SCORE_BONUS = 40;
+
 /**
  * Ranking logic isolated
  */
-const rankUsers = (users: ProcessedUser[]): ProcessedUser[] => {
+export const rankUsers = (users: ProcessedUser[]): ProcessedUser[] => {
   return users.sort((a, b) => {
     if (a.superLike && !b.superLike) return -1;
     if (!a.superLike && b.superLike) return 1;
@@ -252,12 +274,20 @@ const rankUsers = (users: ProcessedUser[]): ProcessedUser[] => {
     if (a.superLike && b.superLike) {
       const tA = a.likedAt ? new Date(a.likedAt).getTime() : 0;
       const tB = b.likedAt ? new Date(b.likedAt).getTime() : 0;
-      return tA - tB;
+      return tB - tA;
     }
 
     return (b.totalScore ?? 0) - (a.totalScore ?? 0);
   });
 };
+
+export const sanitizeFilteredUsersResult = (result: {
+  users: ProcessedUser[];
+  nextCursor: string | null;
+}): FilteredUsersResult => ({
+  users: result.users.map(({ preferences, ...user }) => user),
+  nextCursor: result.nextCursor,
+});
 
 const BASIC_DISCOVERY_FILTERS = new Set<keyof GetUsersFilters>([
   "currentUserId",
@@ -293,7 +323,11 @@ const downgradeAdvancedFilters = (
 export const userService = {
   createUserProfile: async (clerkId: string, phone?: string) => {
     const exists = await userRepo.getUserByClerkId(clerkId);
-    if (exists) throw new Error("User already exists");
+    if (exists) {
+      throw new ConflictError("User already exists.", {
+        code: "USER_ALREADY_EXISTS",
+      });
+    }
 
     return db.transaction(async (tx) => {
       const user = await userRepo.createUser({ id: clerkId, phone }, tx);
@@ -348,7 +382,7 @@ export const userService = {
     radius: number[],
     ageRange: number[],
     minPhotos?: number,
-  ) => {
+  ): Promise<FilteredUsersResult> => {
     const currentUser = await userRepo.getUserById(currentUserId);
     const canUseAdvancedFilters = entitlementService.hasAdvancedFilters(
       currentUser?.subscriptionType,
@@ -361,7 +395,9 @@ export const userService = {
     // STEP 1: origin
     const currentLocation = await userRepo.getUserLocation(currentUserId);
     if (!currentLocation?.latitude || !currentLocation?.longitude) {
-      throw new Error("Current user location not found");
+      throw new BadRequestError("Current user location not found.", {
+        code: "CURRENT_USER_LOCATION_NOT_FOUND",
+      });
     }
 
     const origin = {
@@ -430,16 +466,19 @@ export const userService = {
         country,
         baseVisibilityScore,
         advancedScore,
-        totalScore: baseVisibilityScore + advancedScore,
+        totalScore:
+          baseVisibilityScore +
+          advancedScore +
+          (user.hasLikedLoggedInUser ? INCOMING_LIKE_SCORE_BONUS : 0),
       });
     }
 
     // STEP 4: ranking
     const ranked = rankUsers(processed);
 
-    return {
+    return sanitizeFilteredUsersResult({
       users: ranked,
       nextCursor,
-    };
+    });
   },
 };

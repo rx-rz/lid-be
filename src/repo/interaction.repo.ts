@@ -9,6 +9,7 @@ import {
   swipeLimitsTable,
 } from "../db/schema";
 import { alias } from "drizzle-orm/pg-core";
+import { TooManyRequestsError } from "../middleware/error";
 
 export const interactionRepo = {
   getExistingLike: async (likerId: string, likedId: string) => {
@@ -173,7 +174,15 @@ export const interactionRepo = {
       const resetTime = new Date(
         record.windowStart.getTime() + 24 * 60 * 60 * 1000,
       );
-      throw new Error(`SWIPE_LIMIT_REACHED:${resetTime.toISOString()}`);
+      throw new TooManyRequestsError("Swipe limit reached.", {
+        code: "SWIPE_LIMIT_REACHED",
+        details: [
+          {
+            message: "Daily swipe allowance has been reached.",
+            resetTime: resetTime.toISOString(),
+          },
+        ],
+      });
     }
 
     await db

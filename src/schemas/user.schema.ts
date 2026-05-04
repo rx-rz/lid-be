@@ -5,6 +5,7 @@ import {
   parseJsonArray,
   parseMultiSelect,
 } from "../utils/query-parsers";
+import { BadRequestError } from "../middleware/error";
 
 export const SubscriptionType = t.Union([
   t.Literal("economy"),
@@ -79,7 +80,19 @@ export const buildUserFilters = (query: any) => {
   const age = parseJsonArray(query.age);
 
   if (radius.length < 2 || age.length < 2) {
-    throw new Error("Invalid range");
+    throw new BadRequestError("Invalid range.", {
+      code: "INVALID_RANGE",
+      details: [
+        {
+          path: "query.radius",
+          message: "Expected a JSON array with minimum and maximum values.",
+        },
+        {
+          path: "query.age",
+          message: "Expected a JSON array with minimum and maximum values.",
+        },
+      ],
+    });
   }
 
   return {

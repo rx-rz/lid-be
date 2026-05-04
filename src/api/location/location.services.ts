@@ -1,6 +1,6 @@
-import { InternalServerError, NotFoundError } from "elysia";
 import { locationRepo } from "../../repo/location.repo";
 import { getCountryFromCoordinates } from "../../utils/location";
+import { InternalServerError, NotFoundError } from "../../middleware/error";
 
 export const locationService = {
   createLocation: async (

@@ -7,17 +7,12 @@ export const profileViewsRoutes = new Elysia({ prefix: "/profile-views" })
   .post(
     "/",
     async ({ body, set }) => {
-      try {
-        const view = await profileViewsService.recordView(
-          body.viewerId,
-          body.viewedId,
-        );
-        set.status = 201;
-        return view;
-      } catch (error: any) {
-        set.status = error.message.includes("not found") ? 404 : 400;
-        return { error: error.message || "Failed to record profile view" };
-      }
+      const view = await profileViewsService.recordView(
+        body.viewerId,
+        body.viewedId,
+      );
+      set.status = 201;
+      return view;
     },
     {
       body: t.Object({
@@ -34,23 +29,18 @@ export const profileViewsRoutes = new Elysia({ prefix: "/profile-views" })
   )
   .get(
     "/:userId",
-    async ({ params: { userId }, query, set }) => {
-      try {
-        const limit = query.limit ? Number(query.limit) : 20;
-        const offset = query.offset ? Number(query.offset) : 0;
-        const markAsSeen = query.markAsSeen === "true";
+    async ({ params: { userId }, query }) => {
+      const limit = query.limit ? Number(query.limit) : 20;
+      const offset = query.offset ? Number(query.offset) : 0;
+      const markAsSeen = query.markAsSeen === "true";
 
-        const views = await profileViewsService.getViews(
-          userId,
-          limit,
-          offset,
-          markAsSeen,
-        );
-        return views;
-      } catch (error: any) {
-        set.status = error.message.includes("does not exist") ? 400 : 500;
-        return { error: error.message || "Failed to fetch profile views" };
-      }
+      const views = await profileViewsService.getViews(
+        userId,
+        limit,
+        offset,
+        markAsSeen,
+      );
+      return views;
     },
     {
       params: t.Object({ userId: t.String() }),
@@ -69,14 +59,9 @@ export const profileViewsRoutes = new Elysia({ prefix: "/profile-views" })
   )
   .delete(
     "/",
-    async ({ set }) => {
-      try {
-        const result = await profileViewsService.clearOldViews();
-        return { deletedCount: result?.rowCount || 0, success: true };
-      } catch (error: any) {
-        set.status = 500;
-        return { error: "Failed to clear old profile views" };
-      }
+    async () => {
+      const result = await profileViewsService.clearOldViews();
+      return { deletedCount: result?.rowCount || 0, success: true };
     },
     {
       detail: {

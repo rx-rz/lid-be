@@ -8,6 +8,12 @@ import {
   rateLimitPresets,
   routeRateLimit,
 } from "../../config/rate-limits";
+import {
+  AppError,
+  BadRequestError,
+  ErrorResponseSchema,
+  InternalServerError,
+} from "../../middleware/error";
 
 export const paymentRoutes = new Elysia({})
   .use(routeRateLimit(rateLimitPresets.webhook))
@@ -17,8 +23,9 @@ export const paymentRoutes = new Elysia({})
       try {
         const signature = request.headers.get("stripe-signature");
         if (!signature) {
-          set.status = 400;
-          return "Missing stripe-signature header";
+          throw new BadRequestError("Missing stripe-signature header.", {
+            code: "MISSING_STRIPE_SIGNATURE",
+          });
         }
 
         const rawBody = await request.text();
@@ -36,9 +43,12 @@ export const paymentRoutes = new Elysia({})
 
         return { received: true };
       } catch (err: any) {
+        if (err instanceof AppError) throw err;
         loggers.payment.warn({ err }, "stripe webhook failed");
-        set.status = 400;
-        return `Webhook Error: ${err.message}`;
+        throw new BadRequestError(`Webhook Error: ${err.message}`, {
+          code: "STRIPE_WEBHOOK_ERROR",
+          cause: err,
+        });
       }
     },
     {
@@ -49,13 +59,8 @@ export const paymentRoutes = new Elysia({})
   .use(routeRateLimit(rateLimitPresets.payments))
   .get(
     "/plans",
-    async ({ set }) => {
-      try {
-        return await paymentService.getPlans();
-      } catch (error) {
-        set.status = 500;
-        return { error: "Failed to fetch subscription plans" };
-      }
+    async () => {
+      return await paymentService.getPlans();
     },
     {
       detail: {
@@ -66,13 +71,8 @@ export const paymentRoutes = new Elysia({})
   )
   .get(
     "/addons",
-    async ({ set }) => {
-      try {
-        return await paymentService.getAddons();
-      } catch (error) {
-        set.status = 500;
-        return { error: "Failed to fetch add-ons" };
-      }
+    async () => {
+      return await paymentService.getAddons();
     },
     {
       detail: {
@@ -83,26 +83,13 @@ export const paymentRoutes = new Elysia({})
   )
   .post(
     "/addons/checkout",
-    async ({ body, set }) => {
-      try {
-        return await paymentService.createAddonCheckout(
-          body.userId,
-          body.packId,
-          body.successUrl,
-          body.cancelUrl,
-        );
-      } catch (error: any) {
-        if (error.message === "USER_NO_CUSTOMER_ID") {
-          set.status = 400;
-          return { error: "User has no Stripe customer ID" };
-        }
-        if (error.message === "ADDON_PACK_NOT_FOUND") {
-          set.status = 404;
-          return { error: "Add-on pack not found" };
-        }
-        set.status = 500;
-        return { error: "Failed to create add-on checkout session" };
-      }
+    async ({ body }) => {
+      return await paymentService.createAddonCheckout(
+        body.userId,
+        body.packId,
+        body.successUrl,
+        body.cancelUrl,
+      );
     },
     {
       body: t.Object({
@@ -119,20 +106,11 @@ export const paymentRoutes = new Elysia({})
   )
   .post(
     "/subscription",
-    async ({ body, set }) => {
-      try {
-        return await paymentService.createPaymentIntent(
-          body.userId,
-          body.priceId,
-        );
-      } catch (error: any) {
-        if (error.message === "USER_NO_CUSTOMER_ID") {
-          set.status = 400;
-          return { error: "User has no Stripe customer ID" };
-        }
-        set.status = 500;
-        return { error: "Failed to create payment intent" };
-      }
+    async ({ body }) => {
+      return await paymentService.createPaymentIntent(
+        body.userId,
+        body.priceId,
+      );
     },
     {
       body: t.Object({
@@ -147,17 +125,8 @@ export const paymentRoutes = new Elysia({})
   )
   .get(
     "/status/:userId",
-    async ({ params: { userId }, set }) => {
-      try {
-        return await paymentService.getPaymentStatus(userId);
-      } catch (error: any) {
-        if (error.message === "PAYMENT_RECORD_NOT_FOUND") {
-          set.status = 404;
-          return { error: "Payment record not found" };
-        }
-        set.status = 500;
-        return { error: "Failed to fetch payment status" };
-      }
+    async ({ params: { userId } }) => {
+      return await paymentService.getPaymentStatus(userId);
     },
     {
       params: t.Object({ userId: t.String() }),
@@ -166,17 +135,8 @@ export const paymentRoutes = new Elysia({})
   )
   .get(
     "/customer/:userId",
-    async ({ params: { userId }, set }) => {
-      try {
-        return await paymentService.getCustomer(userId);
-      } catch (error: any) {
-        if (error.message === "CUSTOMER_NOT_FOUND") {
-          set.status = 404;
-          return { error: "Customer not found" };
-        }
-        set.status = 500;
-        return { error: "Failed to fetch customer" };
-      }
+    async ({ params: { userId } }) => {
+      return await paymentService.getCustomer(userId);
     },
     {
       params: t.Object({ userId: t.String() }),
@@ -186,15 +146,17 @@ export const paymentRoutes = new Elysia({})
   .group("", (app) =>
     app.use(clerkPlugin()).post(
       "/customer",
-      async ({ body, set }) => {
+      async ({ body }) => {
         try {
           return await paymentService.getOrCreateCustomer(
             body.userId,
             body.email,
           );
         } catch (error) {
-          set.status = 500;
-          return { error: "Failed to create Stripe customer" };
+          throw new InternalServerError("Failed to create Stripe customer.", {
+            code: "STRIPE_CUSTOMER_CREATE_FAILED",
+            cause: error,
+          });
         }
       },
       {
@@ -202,6 +164,11 @@ export const paymentRoutes = new Elysia({})
           userId: t.String(),
           email: t.String({ format: "email" }),
         }),
+        response: {
+          400: ErrorResponseSchema,
+          404: ErrorResponseSchema,
+          500: ErrorResponseSchema,
+        },
         detail: {
           tags: ["Payments"],
           summary: "Get or Create a Stripe Customer",

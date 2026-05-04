@@ -3,13 +3,8 @@ import { blockService } from "./block.services";
 
 export const blockRoutes = new Elysia({ prefix: "/block" }).post(
   "/",
-  async ({ body, set }) => {
-    try {
-      return await blockService.blockUser(body.blockerId, body.blockedId);
-    } catch (error: any) {
-      set.status = 400;
-      return { error: error.message };
-    }
+  async ({ body }) => {
+    return await blockService.blockUser(body.blockerId, body.blockedId);
   },
   {
     body: t.Object({ blockerId: t.String(), blockedId: t.String() }),

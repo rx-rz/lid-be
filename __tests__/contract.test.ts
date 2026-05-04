@@ -77,6 +77,8 @@ mock.module("stream-chat", () => ({
 
 let app: Awaited<ReturnType<typeof import("../src/index")["createApp"]>>;
 let userService: typeof import("../src/api/user/user.services")["userService"];
+let calculateVisibilityScore: typeof import("../src/api/user/user.services")["calculateVisibilityScore"];
+let rankUsers: typeof import("../src/api/user/user.services")["rankUsers"];
 let interactionService: typeof import("../src/api/interaction/interaction.services")["interactionService"];
 let paymentService: typeof import("../src/api/payment/payment.services")["paymentService"];
 let preferenceService: typeof import("../src/api/preference/preference.services")["preferenceService"];
@@ -110,6 +112,8 @@ beforeAll(async () => {
 
   app = modules[0].createApp();
   userService = modules[1].userService;
+  calculateVisibilityScore = modules[1].calculateVisibilityScore;
+  rankUsers = modules[1].rankUsers;
   interactionService = modules[2].interactionService;
   paymentService = modules[3].paymentService;
   preferenceService = modules[4].preferenceService;
@@ -256,13 +260,94 @@ describe("contract shapes", () => {
   });
 
   test("user discovery returns users and nextCursor", async () => {
+    userService.getFilteredUsersList = mock(async () => ({
+      users: [
+        {
+          id: "u2",
+          birthday: "1996-01-01",
+          hasLikedLoggedInUser: true,
+          preferences: {
+            userId: "u2",
+            lookingToDate: "WOMAN",
+          },
+        },
+      ],
+      nextCursor: null,
+    })) as any;
+
     const response = await app.handle(
       jsonRequest("/api/v1/users?userId=u1&radius=[0,100]&age=[18,40]"),
     );
     const body = await response.json();
 
     expect(response.status).toBe(200);
-    expect(body).toEqual({ users: [], nextCursor: null });
+    expect(body).toEqual({
+      users: [
+        {
+          id: "u2",
+          birthday: "1996-01-01",
+          hasLikedLoggedInUser: true,
+        },
+      ],
+      nextCursor: null,
+    });
+    expect(body.users[0]).not.toHaveProperty("preferences");
+  });
+
+  test("discovery scoring treats visibility boosts and super likes as deck lifts", () => {
+    const bareScore = calculateVisibilityScore({
+      createdAt: new Date("2026-01-01T00:00:00.000Z"),
+      verified: false,
+      onlineStatus: false,
+      lastLogin: new Date("2025-01-01T00:00:00.000Z"),
+      images: [],
+      profile: { bio: "" },
+    } as any);
+
+    const visibleScore = calculateVisibilityScore({
+      createdAt: new Date(),
+      verified: true,
+      onlineStatus: true,
+      lastLogin: new Date(),
+      images: [{ imageUrl: "one" }, { imageUrl: "two" }, { imageUrl: "three" }],
+      profile: { bio: "A thoughtful profile with enough detail to matter." },
+    } as any);
+
+    expect(visibleScore - bareScore).toBeGreaterThan(60);
+
+    const ranked = rankUsers([
+      {
+        id: "plain-strong",
+        superLike: false,
+        likedAt: null,
+        totalScore: 160,
+      },
+      {
+        id: "boosted",
+        superLike: false,
+        likedAt: null,
+        totalScore: 320,
+      },
+      {
+        id: "older-super-like",
+        superLike: true,
+        likedAt: new Date("2026-05-01T00:00:00.000Z"),
+        totalScore: 1,
+      },
+      {
+        id: "newer-super-like",
+        superLike: true,
+        likedAt: new Date("2026-05-03T00:00:00.000Z"),
+        totalScore: 1,
+      },
+    ] as any).map((user) => user.id);
+
+    expect(ranked).toEqual([
+      "newer-super-like",
+      "older-super-like",
+      "boosted",
+      "plain-strong",
+    ]);
   });
 
   test("route rate-limit presets cover discovery interactions payments and public routes", () => {
@@ -306,7 +391,7 @@ describe("contract shapes", () => {
     });
   });
 
-  test("like route keeps swipe-limit 429 body", async () => {
+  test("like route returns normalized swipe-limit 429 envelope", async () => {
     interactionService.likeUser = mock(async () => {
       throw new Error("SWIPE_LIMIT_REACHED:2026-05-04T00:00:00.000Z");
     }) as any;
@@ -319,10 +404,140 @@ describe("contract shapes", () => {
     );
 
     expect(response.status).toBe(429);
-    expect(await response.json()).toEqual({
-      error: "Swipe limit reached",
-      resetTime: "2026-05-04T00:00:00.000Z",
+    expect(await response.json()).toMatchObject({
+      status: "fail",
+      message: "Swipe limit reached.",
+      code: "SWIPE_LIMIT_REACHED",
+      details: [
+        {
+          message: "Daily swipe allowance has been reached.",
+          resetTime: "2026-05-04T00:00:00.000Z",
+        },
+      ],
+      requestId: expect.any(String),
     });
+  });
+
+  test("typebox validation errors use normalized details", async () => {
+    const response = await app.handle(
+      jsonRequest("/api/v1/likes", {
+        method: "POST",
+        body: JSON.stringify({ likerId: "u1" }),
+      }),
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(body).toMatchObject({
+      status: "fail",
+      message: "Request validation failed.",
+      code: "VALIDATION_ERROR",
+      requestId: expect.any(String),
+    });
+    expect(body.details.length).toBeGreaterThan(0);
+  });
+
+  test("query parser bad requests use normalized details", async () => {
+    const response = await app.handle(
+      jsonRequest("/api/v1/users?userId=u1&radius=[0]&age=[18,40]"),
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(body).toMatchObject({
+      status: "fail",
+      message: "Invalid range.",
+      code: "INVALID_RANGE",
+      details: [
+        {
+          path: "query.radius",
+          message: "Expected a JSON array with minimum and maximum values.",
+        },
+        {
+          path: "query.age",
+          message: "Expected a JSON array with minimum and maximum values.",
+        },
+      ],
+    });
+  });
+
+  test("domain errors use status code and error code", async () => {
+    interactionService.likeUser = mock(async () => {
+      const { ConflictError } = await import("../src/middleware/error");
+      throw new ConflictError("Like already exists.", {
+        code: "LIKE_ALREADY_EXISTS",
+      });
+    }) as any;
+
+    const response = await app.handle(
+      jsonRequest("/api/v1/likes", {
+        method: "POST",
+        body: JSON.stringify({ likerId: "u1", likedId: "u2" }),
+      }),
+    );
+
+    expect(response.status).toBe(409);
+    expect(await response.json()).toMatchObject({
+      status: "fail",
+      message: "Like already exists.",
+      code: "LIKE_ALREADY_EXISTS",
+    });
+  });
+
+  test("database errors are translated before responding", async () => {
+    const { errorMiddleware } = await import("../src/middleware/error");
+    const dbErrorApp = new Elysia()
+      .use(errorMiddleware)
+      .get("/unique", () => {
+        const err: any = new Error("duplicate key value violates unique constraint");
+        err.code = "23505";
+        err.constraint = "users_email_unique";
+        throw err;
+      })
+      .get("/foreign-key", () => {
+        const err: any = new Error("insert or update violates foreign key constraint");
+        err.code = "23503";
+        throw err;
+      });
+
+    const unique = await dbErrorApp.handle(new Request("http://localhost/unique"));
+    expect(unique.status).toBe(409);
+    expect(await unique.json()).toMatchObject({
+      status: "fail",
+      message: "Email is already in use.",
+      code: "USER_ALREADY_EXISTS",
+    });
+
+    const foreignKey = await dbErrorApp.handle(
+      new Request("http://localhost/foreign-key"),
+    );
+    expect(foreignKey.status).toBe(400);
+    expect(await foreignKey.json()).toMatchObject({
+      status: "fail",
+      message: "Referenced record does not exist.",
+      code: "DATABASE_FOREIGN_KEY_VIOLATION",
+    });
+  });
+
+  test("unhandled errors use normalized fallback with debug in test", async () => {
+    const { errorMiddleware } = await import("../src/middleware/error");
+    const failureApp = new Elysia().use(errorMiddleware).get("/boom", () => {
+      throw new Error("Unexpected failure");
+    });
+
+    const response = await failureApp.handle(new Request("http://localhost/boom"));
+    const body = await response.json();
+
+    expect(response.status).toBe(500);
+    expect(body).toMatchObject({
+      status: "error",
+      message: "Unexpected failure",
+      code: "INTERNAL_SERVER_ERROR",
+      debug: {
+        name: "Error",
+      },
+    });
+    expect(body.stack).toContain("Unexpected failure");
   });
 
   test("payment route response shapes are stable", async () => {

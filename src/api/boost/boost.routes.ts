@@ -9,13 +9,8 @@ export const boostRoutes = new Elysia({ prefix: "/boost" })
   .use(routeRateLimit(rateLimitPresets.entitlementConsumption))
   .post(
     "/:userId",
-    async ({ params: { userId }, set }) => {
-      try {
-        return await premiumService.boostUser(userId);
-      } catch (error: any) {
-        set.status = 400;
-        return { error: "Failed to apply boost" };
-      }
+    async ({ params: { userId } }) => {
+      return await premiumService.boostUser(userId);
     },
     {
       params: t.Object({ userId: t.String() }),

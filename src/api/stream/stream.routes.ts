@@ -6,6 +6,7 @@ import { logger } from "../../utils/logger";
 import { userRepo } from "../../repo/user.repo";
 import { entitlementService, resolveTier } from "../../services/entitlements";
 import { premiumFeatureRepo } from "../../repo/premium.repo";
+import { PaymentRequiredError, UnauthorizedError } from "../../middleware/error";
 
 
 export const streamRoutes = new Elysia({ prefix: "/stream" })
@@ -20,7 +21,7 @@ export const streamRoutes = new Elysia({ prefix: "/stream" })
   })
   .post(
     "/call",
-    async ({ body, set }) => {
+    async ({ body }) => {
       if (body.userId) {
         const user = await userRepo.getUserById(body.userId);
         const allowance = entitlementService.getSubscriptionAllowance(
@@ -38,8 +39,10 @@ export const streamRoutes = new Elysia({ prefix: "/stream" })
         );
 
         if (!consumed) {
-          set.status = 402;
-          return { error: "You are out of Cruise calls. Please upgrade or buy more." };
+          throw new PaymentRequiredError(
+            "You are out of Cruise calls. Please upgrade or buy more.",
+            { code: "INSUFFICIENT_CRUISE_CALLS" },
+          );
         }
 
         logger.info(
@@ -69,15 +72,16 @@ export const streamRoutes = new Elysia({ prefix: "/stream" })
   )
   .post(
     "/new-message-webhook",
-    async ({ body, headers, set }: { body: any; headers: any; set: any }) => {
+    async ({ body, headers }: { body: any; headers: any }) => {
       const isValid = streamClient.verifyWebhook(
         JSON.stringify(body),
         headers["x-signature"],
       );
 
       if (!isValid) {
-        set.status = 401;
-        return { error: "Invalid signature" };
+        throw new UnauthorizedError("Invalid signature.", {
+          code: "INVALID_STREAM_SIGNATURE",
+        });
       }
 
       if (body.type !== "message.new") {

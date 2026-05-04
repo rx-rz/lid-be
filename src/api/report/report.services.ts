@@ -1,5 +1,6 @@
 import { reportRepo } from "../../repo/report.repo";
 import { userRepo } from "../../repo/user.repo";
+import { BadRequestError, NotFoundError } from "../../middleware/error";
 
 export const reportService = {
   create: async (data: {
@@ -8,11 +9,18 @@ export const reportService = {
     reason: string;
     details?: string;
   }) => {
-    if (data.reporterId === data.reportedId)
-      throw new Error("Cannot report yourself");
+    if (data.reporterId === data.reportedId) {
+      throw new BadRequestError("Cannot report yourself.", {
+        code: "INVALID_SELF_INTERACTION",
+      });
+    }
 
     const reportedExists = await userRepo.checkUserExists(data.reportedId);
-    if (!reportedExists) throw new Error("Target user not found");
+    if (!reportedExists) {
+      throw new NotFoundError("Target user not found.", {
+        code: "REPORTED_USER_NOT_FOUND",
+      });
+    }
 
     return await reportRepo.create(data);
   },
@@ -23,7 +31,9 @@ export const reportService = {
 
   updateStatus: async (id: string, status: string) => {
     const updated = await reportRepo.updateStatus(id, status);
-    if (!updated) throw new Error("Report not found");
+    if (!updated) {
+      throw new NotFoundError("Report not found.", { code: "REPORT_NOT_FOUND" });
+    }
     return updated;
   },
 };

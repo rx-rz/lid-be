@@ -2,7 +2,7 @@ import { Elysia, t } from "elysia";
 import { clerkPlugin } from "elysia-clerk";
 
 import { userRepo } from "../../repo/user.repo";
-import { userService } from "./user.services";
+import { sanitizeFilteredUsersResult, userService } from "./user.services";
 import { interactionService } from "../interaction/interaction.services";
 import { blockMiddleware } from "../../middleware/block";
 
@@ -15,20 +15,12 @@ import {
   rateLimitPresets,
   routeRateLimit,
 } from "../../config/rate-limits";
+import { ErrorResponseSchema, NotFoundError } from "../../middleware/error";
 /**
  * ---------------------------------------
  * SHARED RESPONSE SCHEMAS
  * ---------------------------------------
  */
-
-const ErrorResponse = t.Object({
-  error: t.String(),
-});
-
-const FailResponse = t.Object({
-  status: t.String(),
-  message: t.String(),
-});
 
 /**
  * ---------------------------------------
@@ -58,20 +50,13 @@ export const userRoutes = new Elysia({ name: "routes.user" })
   .post(
     "/user",
     async ({ body, set }) => {
-      try {
-        const user = await userService.createUserProfile(
-          body.clerkId,
-          body.phone,
-        );
+      const user = await userService.createUserProfile(
+        body.clerkId,
+        body.phone,
+      );
 
-        set.status = 201;
-        return user;
-      } catch (err: any) {
-        set.status = 400;
-        return {
-          error: err.message || "Failed to create user",
-        };
-      }
+      set.status = 201;
+      return user;
     },
     {
       body: t.Object({
@@ -81,7 +66,8 @@ export const userRoutes = new Elysia({ name: "routes.user" })
       detail: { tags: ["User"], summary: "Create user profile" },
       response: {
         201: UserSchema,
-        400: ErrorResponse,
+        400: ErrorResponseSchema,
+        409: ErrorResponseSchema,
       },
     },
   )
@@ -93,25 +79,19 @@ export const userRoutes = new Elysia({ name: "routes.user" })
    */
   .patch(
     "/user/:id",
-    async ({ params: { id }, body, set }) => {
-      try {
-        const updated = await userService.updateUser(id, {
-          ...body,
-          lastLogin: body.lastLogin ? new Date(body.lastLogin) : undefined,
+    async ({ params: { id }, body }) => {
+      const updated = await userService.updateUser(id, {
+        ...body,
+        lastLogin: body.lastLogin ? new Date(body.lastLogin) : undefined,
+      });
+
+      if (!updated) {
+        throw new NotFoundError("User not found or not updated.", {
+          code: "USER_NOT_FOUND",
         });
-
-        if (!updated) {
-          set.status = 404;
-          return { error: "User not found or not updated" };
-        }
-
-        return updated as any;
-      } catch (err: any) {
-        set.status = 500;
-        return {
-          error: err.message || "Internal server error",
-        };
       }
+
+      return updated as any;
     },
     {
       params: t.Object({
@@ -158,8 +138,8 @@ export const userRoutes = new Elysia({ name: "routes.user" })
       detail: { tags: ["User"], summary: "Update user details" },
       response: {
         200: UserSchema,
-        404: ErrorResponse,
-        500: ErrorResponse,
+        404: ErrorResponseSchema,
+        500: ErrorResponseSchema,
       },
     },
   )
@@ -224,12 +204,11 @@ export const userRoutes = new Elysia({ name: "routes.user" })
    */
   .get(
     "/user/:userId",
-    async ({ params: { userId }, set }) => {
+    async ({ params: { userId } }) => {
       const user = await userService.getUserDetails(userId);
 
       if (!user) {
-        set.status = 404;
-        return { error: "User not found" };
+        throw new NotFoundError("User not found.", { code: "USER_NOT_FOUND" });
       }
 
       return user;
@@ -241,7 +220,7 @@ export const userRoutes = new Elysia({ name: "routes.user" })
       detail: { tags: ["User"], summary: "Get user details" },
       response: {
         200: t.Any(),
-        404: ErrorResponse,
+        404: ErrorResponseSchema,
       },
     },
   )
@@ -312,27 +291,18 @@ export const userRoutes = new Elysia({ name: "routes.user" })
   .use(routeRateLimit(rateLimitPresets.discovery))
   .get(
     "/users",
-    async ({ query, set }) => {
-      try {
-        const { radius, age, filters, minPhotos } = buildUserFilters(query);
+    async ({ query }) => {
+      const { radius, age, filters, minPhotos } = buildUserFilters(query);
 
-        const result = await userService.getFilteredUsersList(
-          query.userId,
-          filters,
-          radius,
-          age,
-          minPhotos,
-        );
+      const result = await userService.getFilteredUsersList(
+        query.userId,
+        filters,
+        radius,
+        age,
+        minPhotos,
+      );
 
-        return result;
-      } catch (err: any) {
-        set.status = 400;
-
-        return {
-          status: "fail",
-          message: err.message || "Invalid request",
-        };
-      }
+      return sanitizeFilteredUsersResult(result as any);
     },
     {
       query: GetUsersQuerySchema,
@@ -342,7 +312,7 @@ export const userRoutes = new Elysia({ name: "routes.user" })
           users: t.Array(t.Any()),
           nextCursor: t.Union([t.String(), t.Null()]),
         }),
-        400: FailResponse,
+        400: ErrorResponseSchema,
       },
     },
   );

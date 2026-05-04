@@ -6,6 +6,13 @@ import { logger } from "../../utils/logger";
 import { getAge } from "../user/user.services";
 import { premiumFeatureRepo } from "../../repo/premium.repo";
 import { entitlementService, resolveTier } from "../../services/entitlements";
+import {
+  BadRequestError,
+  ConflictError,
+  InternalServerError,
+  NotFoundError,
+  PaymentRequiredError,
+} from "../../middleware/error";
 
 const enforceSwipeLimit = async (
   userId: string,
@@ -81,13 +88,19 @@ export const interactionService = {
     likedId: string,
     superLike: boolean = false,
   ) => {
-    if (likerId === likedId) throw new Error("You cannot like yourself");
+    if (likerId === likedId) {
+      throw new BadRequestError("You cannot like yourself.", {
+        code: "INVALID_SELF_INTERACTION",
+      });
+    }
 
     const likerExists = await userRepo.getUserDetailsById(likerId);
     const likedExists = await userRepo.getUserDetailsById(likedId);
 
     if (!likerExists || !likedExists) {
-      throw new Error("One or both users do not exist");
+      throw new NotFoundError("One or both users do not exist.", {
+        code: "INTERACTION_USER_NOT_FOUND",
+      });
     }
 
     const existingLike = await interactionRepo.getExistingLike(
@@ -95,7 +108,9 @@ export const interactionService = {
       likedId,
     );
     if (existingLike) {
-      throw new Error("Like already exists");
+      throw new ConflictError("Like already exists.", {
+        code: "LIKE_ALREADY_EXISTS",
+      });
     }
 
     if (superLike) {
@@ -105,7 +120,10 @@ export const interactionService = {
       );
       const updatedWallet = await premiumFeatureRepo.useSuperLike(likerId);
       if (!updatedWallet) {
-        throw new Error("INSUFFICIENT_SUPERLIKES");
+        throw new PaymentRequiredError(
+          "You are out of Super Likes. Please upgrade or buy more.",
+          { code: "INSUFFICIENT_SUPERLIKES" },
+        );
       }
       logger.info(
         {
@@ -120,7 +138,7 @@ export const interactionService = {
     await enforceSwipeLimit(likerId, likerExists.subscription);
 
     const like = await interactionRepo.createLike(likerId, likedId, superLike);
-    if (!like) throw new Error("Failed to create like");
+    if (!like) throw new InternalServerError("Failed to create like.");
 
     const mutualLike = await interactionRepo.getExistingLike(likedId, likerId);
 
@@ -145,7 +163,7 @@ export const interactionService = {
       }
 
       const newMatch = await matchRepo.createMatch(likerId, likedId);
-      if (!newMatch) throw new Error("Failed to create match");
+      if (!newMatch) throw new InternalServerError("Failed to create match.");
 
       if (likedExists.fcmToken) {
         sendMatchNotification(
@@ -176,14 +194,19 @@ export const interactionService = {
   },
 
   dislikeUser: async (dislikerId: string, dislikedId: string) => {
-    if (dislikerId === dislikedId)
-      throw new Error("You cannot dislike yourself");
+    if (dislikerId === dislikedId) {
+      throw new BadRequestError("You cannot dislike yourself.", {
+        code: "INVALID_SELF_INTERACTION",
+      });
+    }
 
     const dislikerExists = await userRepo.getUserDetailsById(dislikerId);
     const dislikedExists = await userRepo.checkUserExists(dislikedId);
 
     if (!dislikerExists || !dislikedExists) {
-      throw new Error("One or both users do not exist");
+      throw new NotFoundError("One or both users do not exist.", {
+        code: "INTERACTION_USER_NOT_FOUND",
+      });
     }
 
     const existingLike = await interactionRepo.getExistingLike(
@@ -191,7 +214,9 @@ export const interactionService = {
       dislikedId,
     );
     if (existingLike) {
-      throw new Error("Cannot dislike a user you have already liked");
+      throw new ConflictError("Cannot dislike a user you have already liked.", {
+        code: "LIKE_ALREADY_EXISTS",
+      });
     }
 
     const existingDislike = await interactionRepo.getExistingDislike(
@@ -199,13 +224,15 @@ export const interactionService = {
       dislikedId,
     );
     if (existingDislike) {
-      throw new Error("Dislike already exists");
+      throw new ConflictError("Dislike already exists.", {
+        code: "DISLIKE_ALREADY_EXISTS",
+      });
     }
 
     await enforceSwipeLimit(dislikerId, dislikerExists.subscription);
 
     const dislike = await interactionRepo.createDislike(dislikerId, dislikedId);
-    if (!dislike) throw new Error("Failed to create dislike");
+    if (!dislike) throw new InternalServerError("Failed to create dislike.");
 
     return dislike;
   },
@@ -236,7 +263,9 @@ export const interactionService = {
     );
 
     if (!existingDislike) {
-      throw new Error("Dislike not found or already rewound");
+      throw new NotFoundError("Dislike not found or already rewound.", {
+        code: "DISLIKE_NOT_FOUND",
+      });
     }
 
     const user = await userRepo.getUserById(dislikerId);
@@ -270,7 +299,10 @@ export const interactionService = {
     );
     const updatedWallet = await premiumFeatureRepo.useRecall(dislikerId);
     if (!updatedWallet) {
-      throw new Error("INSUFFICIENT_RECALLS");
+      throw new PaymentRequiredError(
+        "You are out of Recalls. Please upgrade or buy more.",
+        { code: "INSUFFICIENT_RECALLS" },
+      );
     }
 
     await interactionRepo.deleteDislike(dislikerId, dislikedId);
