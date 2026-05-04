@@ -24,6 +24,10 @@ const mapSubscriptionStatus = (
 const shouldKeepPaidTier = (paymentStatus: ReturnType<typeof mapSubscriptionStatus>) =>
   paymentStatus === "active" || paymentStatus === "past_due";
 
+const getCheckoutReturnBaseUrl = () =>
+  (process.env.MOBILE_APP_URL || process.env.FRONTEND_URL || "http://localhost:3000")
+    .replace(/\/$/, "");
+
 export const stripeService = {
   createStripeCustomer: async (userId: string, email: string) => {
     const customer = await stripe.customers.create({
@@ -85,7 +89,7 @@ export const stripeService = {
       });
     }
 
-    const appUrl = process.env.FRONTEND_URL || "http://localhost:3000";
+    const appUrl = getCheckoutReturnBaseUrl();
     const session = await stripe.checkout.sessions.create({
       customer: data.customerId,
       mode: pack.interval ? "subscription" : "payment",
