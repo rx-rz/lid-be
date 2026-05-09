@@ -1,4 +1,6 @@
 import { Elysia, t } from "elysia";
+import { Expo, type ExpoPushMessage } from "expo-server-sdk";
+
 import { streamService } from "./stream.services";
 import { streamClient } from "../../services/stream.services";
 import { fcmAdmin } from "../../services/fcm";
@@ -8,6 +10,117 @@ import { entitlementService, resolveTier } from "../../services/entitlements";
 import { premiumFeatureRepo } from "../../repo/premium.repo";
 import { PaymentRequiredError, UnauthorizedError } from "../../middleware/error";
 
+const expo = new Expo();
+
+type PushPayload = {
+  title: string;
+  body: string;
+  data?: Record<string, unknown>;
+};
+
+const normalizePushData = (data?: Record<string, unknown>) => {
+  return Object.fromEntries(
+    Object.entries(data ?? {}).map(([key, value]) => [key, String(value)]),
+  );
+};
+
+const sendExpoPushToUser = async (userId: string, payload: PushPayload) => {
+  const pushTokens = await userRepo.getEnabledPushTokensByUserId(userId);
+
+  const messages: ExpoPushMessage[] = pushTokens
+    .filter((pushToken) => pushToken.provider === "expo")
+    .filter((pushToken) => Expo.isExpoPushToken(pushToken.token))
+    .map((pushToken) => ({
+      to: pushToken.token,
+      sound: "default",
+      title: payload.title,
+      body: payload.body,
+      data: payload.data,
+    }));
+
+  if (!messages.length) return;
+
+  const chunks = expo.chunkPushNotifications(messages);
+
+  for (const chunk of chunks) {
+    try {
+      const tickets = await expo.sendPushNotificationsAsync(chunk);
+
+      logger.info(
+        {
+          provider: "expo",
+          userId,
+          tickets,
+        },
+        "[Stream] Expo push notification sent",
+      );
+    } catch (err) {
+      logger.error(
+        { err, userId },
+        "[Stream] Error sending Expo push notification",
+      );
+    }
+  }
+};
+
+const sendLegacyFcmPush = async (
+  fcmToken: string | null | undefined,
+  payload: PushPayload,
+  options?: {
+    highPriority?: boolean;
+  },
+) => {
+  if (!fcmToken) return;
+
+  try {
+    await fcmAdmin.messaging().send({
+      notification: {
+        title: payload.title,
+        body: payload.body,
+      },
+      data: normalizePushData(payload.data),
+      token: fcmToken,
+      ...(options?.highPriority
+        ? {
+            android: {
+              priority: "high" as const,
+            },
+            apns: {
+              headers: {
+                "apns-priority": "10",
+              },
+            },
+          }
+        : {}),
+    });
+
+    logger.info(
+      { provider: "fcm" },
+      "[Stream] Legacy FCM push notification sent",
+    );
+  } catch (err) {
+    logger.error(
+      { err },
+      "[Stream] Error sending legacy FCM push notification",
+    );
+  }
+};
+
+const sendPushToUser = async (
+  user: {
+    id: string;
+    fcmToken?: string | null;
+  },
+  payload: PushPayload,
+  options?: {
+    highPriority?: boolean;
+  },
+) => {
+  await Promise.all([
+    sendExpoPushToUser(user.id, payload),
+    // sendLegacyFcmPush(user.fcmToken, payload, options),
+  ]);
+};
 
 export const streamRoutes = new Elysia({ prefix: "/stream" })
   .post("/token", ({ body }) => streamService.generateToken(body), {
@@ -19,19 +132,23 @@ export const streamRoutes = new Elysia({ prefix: "/stream" })
     }),
     detail: { tags: ["Chat"], summary: "Get Stream.io token" },
   })
+
   .post(
     "/call",
     async ({ body }) => {
       if (body.userId) {
         const user = await userRepo.getUserById(body.userId);
+
         const allowance = entitlementService.getSubscriptionAllowance(
           user?.subscriptionType,
           "videoCalls",
         );
+
         await premiumFeatureRepo.ensureSubscriptionAllowances(
           body.userId,
           resolveTier(user?.subscriptionType),
         );
+
         const consumed = await premiumFeatureRepo.consumeFeature(
           body.userId,
           "videoCalls",
@@ -59,7 +176,10 @@ export const streamRoutes = new Elysia({ prefix: "/stream" })
         );
       }
 
-      return { callId: body.callId, type: body.type || "default" };
+      return {
+        callId: body.callId,
+        type: body.type || "default",
+      };
     },
     {
       body: t.Object({
@@ -70,6 +190,7 @@ export const streamRoutes = new Elysia({ prefix: "/stream" })
       detail: { tags: ["Chat"], summary: "Setup call context" },
     },
   )
+
   .post(
     "/call-ring-webhook",
     async ({ body, headers }: { body: any; headers: any }) => {
@@ -88,47 +209,47 @@ export const streamRoutes = new Elysia({ prefix: "/stream" })
         return { ok: true };
       }
 
-      const callerId =
-        body.call?.created_by?.id ??
-        body.user?.id;
+      const callerId = body.call?.created_by?.id ?? body.user?.id;
 
       const callerName =
-        body.call?.created_by?.name ??
-        body.user?.name ??
-        "Someone";
+        body.call?.created_by?.name ?? body.user?.name ?? "Someone";
 
       const callType = body.call?.type ?? "default";
-      const callId = body.call?.id;
-      const isVideoCall = body.call?.settings?.video?.enabled ?? body.call?.video ?? true;
+      const callId = body.call?.id ?? "";
 
-      const members =
-        body.call?.members ??
-        body.members ??
-        [];
+      const isVideoCall =
+        body.call?.settings?.video?.enabled ?? body.call?.video ?? true;
 
-      const recipients = members.filter((m: any) => {
-        const userId = m.user_id ?? m.user?.id;
-        return userId && userId !== callerId;
+      const members = body.call?.members ?? body.members ?? [];
+
+      const recipients = members.filter((member: any) => {
+        const memberUserId = member.user_id ?? member.user?.id;
+        return memberUserId && memberUserId !== callerId;
       });
 
-      for (const r of recipients) {
-        const recipientId = r.user_id ?? r.user?.id;
-        const user = await userRepo.getUserById(recipientId);
+      await Promise.all(
+        recipients.map(async (recipient: any) => {
+          const recipientId = recipient.user_id ?? recipient.user?.id;
+          if (!recipientId) return;
 
-        if (!user?.fcmToken) continue;
+          const user = await userRepo.getUserById(recipientId);
+          if (!user) return;
 
-        await sendCallNotification({
-          fcmToken: user.fcmToken,
-          callerName,
-          callId,
-          callType,
-          isVideoCall,
-        });
-      }
+          await sendCallNotification({
+            user,
+            callerName,
+            callerId,
+            callId,
+            callType,
+            isVideoCall,
+          });
+        }),
+      );
 
       return { ok: true };
     },
   )
+
   .post(
     "/new-message-webhook",
     async ({ body, headers }: { body: any; headers: any }) => {
@@ -148,92 +269,98 @@ export const streamRoutes = new Elysia({ prefix: "/stream" })
       }
 
       const senderId = body.user?.id;
-      const senderName = body.user?.name;
+      const senderName = body.user?.name ?? "Someone";
       const messageText = body.message?.text;
+      const channelId = body.channel_id ?? body.channel?.id ?? "";
 
-      const members = body.members || [];
+      const members = body.members ?? [];
 
-      const recipients = members.filter((m: any) => m.user_id !== senderId);
+      const recipients = members.filter((member: any) => {
+        const memberUserId = member.user_id ?? member.user?.id;
+        return memberUserId && memberUserId !== senderId;
+      });
 
-      for (const r of recipients) {
-        const user = await userRepo.getUserById(r.user_id);
+      await Promise.all(
+        recipients.map(async (recipient: any) => {
+          const recipientId = recipient.user_id ?? recipient.user?.id;
+          if (!recipientId) return;
 
-        await sendMessageNotification(
-          user.fcmToken ?? "",
-          senderName,
-          messageText,
-        );
-      }
+          const user = await userRepo.getUserById(recipientId);
+          if (!user) return;
+
+          await sendMessageNotification({
+            user,
+            senderName,
+            messageText,
+            senderId,
+            channelId,
+          });
+        }),
+      );
 
       return { ok: true };
     },
   );
 
-export const sendMessageNotification = async (
-  targetFcmToken: string,
-  senderName: string,
-  messageText?: string,
-  options?: {
-    channelId?: string;
-    senderId?: string;
-  },
-) => {
-  if (!targetFcmToken) return;
-
+export const sendMessageNotification = async ({
+  user,
+  senderName,
+  messageText,
+  senderId,
+  channelId,
+}: {
+  user: {
+    id: string;
+    fcmToken?: string | null;
+  };
+  senderName: string;
+  messageText?: string;
+  senderId?: string;
+  channelId?: string;
+}) => {
   const body =
     messageText && messageText.trim().length > 0
       ? messageText
       : "Sent you a message";
 
-  try {
-    await fcmAdmin.messaging().send({
-      notification: {
-        title: `💬 ${senderName}`,
-        body,
-      },
-
-      data: {
-        type: "message.new",
-        senderName,
-        senderId: options?.senderId ?? "",
-        channelId: options?.channelId ?? "",
-      },
-
-      token: targetFcmToken,
-    });
-
-    logger.info("[Message] Push notification sent successfully");
-  } catch (err) {
-    logger.error({ err }, "[Message] Error sending FCM message notification");
-  }
+  await sendPushToUser(user, {
+    title: `💬 ${senderName}`,
+    body,
+    data: {
+      type: "message.new",
+      senderName,
+      senderId: senderId ?? "",
+      channelId: channelId ?? "",
+      action: "OPEN_CHAT",
+    },
+  });
 };
 
 export const sendCallNotification = async ({
-  fcmToken,
+  user,
   callerName,
   callerId,
   callId,
   callType,
   isVideoCall,
 }: {
-  fcmToken: string;
+  user: {
+    id: string;
+    fcmToken?: string | null;
+  };
   callerName: string;
   callerId?: string;
   callId: string;
   callType: string;
   isVideoCall?: boolean;
 }) => {
-  if (!fcmToken) return;
-
   const callLabel = isVideoCall ? "Video call" : "Voice call";
 
-  try {
-    await fcmAdmin.messaging().send({
-      notification: {
-        title: `📞 ${callerName}`,
-        body: `Incoming ${callLabel}`,
-      },
-
+  await sendPushToUser(
+    user,
+    {
+      title: `📞 ${callerName}`,
+      body: `Incoming ${callLabel}`,
       data: {
         type: "call.ring",
         callerName,
@@ -241,26 +368,11 @@ export const sendCallNotification = async ({
         callId,
         callType,
         isVideoCall: String(!!isVideoCall),
-
-        // optional but useful for deep linking
         action: "OPEN_CALL_SCREEN",
       },
-
-      token: fcmToken,
-
-      // optional: helps with delivery priority
-      android: {
-        priority: "high",
-      },
-      apns: {
-        headers: {
-          "apns-priority": "10",
-        },
-      },
-    });
-
-    logger.info("[Call] Push notification sent successfully");
-  } catch (err) {
-    logger.error({ err }, "[Call] Error sending FCM call notification");
-  }
+    },
+    {
+      highPriority: true,
+    },
+  );
 };

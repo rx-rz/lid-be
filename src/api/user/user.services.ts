@@ -1,6 +1,6 @@
 import { clerkClient } from "elysia-clerk";
-
-import { InsertUser } from "../../db/schema";
+import { Expo } from "expo-server-sdk";
+import { DevicePlatform, InsertUser, PushProvider, userPushTokensTable } from "../../db/schema";
 import { db } from "../../db/db";
 import { userRepo, FilteredUser } from "../../repo/user.repo";
 import { locationRepo } from "../../repo/location.repo";
@@ -21,6 +21,7 @@ import {
   getCountryFromCoordinates,
   getTravelTime,
 } from "../../utils/location";
+import { and, eq } from "drizzle-orm";
 
 export type GetUsersFilters = {
   currentUserId: string;
@@ -62,15 +63,15 @@ export type GetUsersFilters = {
  */
 type DistanceInfo =
   | {
-      type: "local";
-      km: number;
-      travelTimeMinutes: number;
-    }
+    type: "local";
+    km: number;
+    travelTimeMinutes: number;
+  }
   | {
-      type: "international";
-      label: string;
-      travelTimeMinutes: 0;
-    };
+    type: "international";
+    label: string;
+    travelTimeMinutes: 0;
+  };
 
 export type ProcessedUser = FilteredUser & {
   distance: DistanceInfo;
@@ -150,9 +151,8 @@ const computeDistance = (
 
   return {
     type: "international",
-    label: `Currently in ${
-      userCountry?.name?.includes("United") ? "The " : ""
-    }${userCountry?.name} ${userCountry?.flag}`,
+    label: `Currently in ${userCountry?.name?.includes("United") ? "The " : ""
+      }${userCountry?.name} ${userCountry?.flag}`,
     travelTimeMinutes: 0,
   };
 };
@@ -320,6 +320,8 @@ const downgradeAdvancedFilters = (
  * -----------------------------
  */
 
+
+const expo = new Expo();
 export const userService = {
   createUserProfile: async (clerkId: string, phone?: string) => {
     const exists = await userRepo.getUserByClerkId(clerkId);
@@ -365,17 +367,15 @@ export const userService = {
     const location =
       loc?.latitude && loc?.longitude
         ? getCountryFromCoordinates(
-            parseFloat(loc.latitude),
-            parseFloat(loc.longitude),
-          )
+          parseFloat(loc.latitude),
+          parseFloat(loc.longitude),
+        )
         : null;
 
     return { ...user, location, whyHere: pref?.whyHere };
   },
 
-  /**
-   * MAIN PIPELINE (NOW STRUCTURED)
-   */
+
   getFilteredUsersList: async (
     currentUserId: string,
     filters: GetUsersFilters,
@@ -480,5 +480,89 @@ export const userService = {
       users: ranked,
       nextCursor,
     });
+  },
+  testExpoPushNotification: async (expoPushToken: string) => {
+    if (!Expo.isExpoPushToken(expoPushToken)) {
+      throw new BadRequestError("Invalid Expo push token.", {
+        code: "INVALID_EXPO_PUSH_TOKEN",
+      });
+    }
+
+    const tickets = await expo.sendPushNotificationsAsync([
+      {
+        to: expoPushToken,
+        sound: "default",
+        title: "Push test worked 🚀",
+        body: "Your backend successfully triggered an Expo push notification.",
+        data: {
+          type: "PUSH_TEST",
+        },
+      },
+    ]);
+
+    return { tickets };
+  },
+  registerPushToken: async (input: {
+    userId: string;
+    token: string;
+    provider?: PushProvider;
+    platform?: DevicePlatform;
+    deviceId?: string;
+  }) => {
+    const provider = input.provider ?? "expo";
+    const platform = input.platform ?? "unknown";
+
+    const [saved] = await db
+      .insert(userPushTokensTable)
+      .values({
+        userId: input.userId,
+        token: input.token,
+        provider,
+        platform,
+        deviceId: input.deviceId,
+        enabled: true,
+        lastUsedAt: new Date(),
+      })
+      .onConflictDoUpdate({
+        target: [userPushTokensTable.userId, userPushTokensTable.token],
+        set: {
+          provider,
+          platform,
+          deviceId: input.deviceId,
+          enabled: true,
+          lastUsedAt: new Date(),
+          updatedAt: new Date(),
+        },
+      })
+      .returning();
+
+    if (provider === "fcm") {
+      await userRepo.updateUser(input.userId, {
+        fcmToken: input.token,
+      });
+    }
+
+    return saved;
+  },
+
+  unregisterPushToken: async (input: {
+    userId: string;
+    token: string;
+  }) => {
+    const [disabled] = await db
+      .update(userPushTokensTable)
+      .set({
+        enabled: false,
+        updatedAt: new Date(),
+      })
+      .where(
+        and(
+          eq(userPushTokensTable.userId, input.userId),
+          eq(userPushTokensTable.token, input.token),
+        ),
+      )
+      .returning();
+
+    return disabled;
   },
 };

@@ -36,6 +36,13 @@
       "when": 1777582600000,
       "tag": "0004_stage_5_7_entitlements",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1778324890688,
+      "tag": "0005_bent_iron_man",
+      "breakpoints": true
     }
   ]
 }

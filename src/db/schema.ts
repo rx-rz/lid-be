@@ -66,6 +66,16 @@ export const reportStatusEnum = pgEnum("report_status", [
   "resolved",
   "dismissed",
 ]);
+export const pushProviderEnum = pgEnum("push_provider", ["expo", "fcm"]);
+export const devicePlatformEnum = pgEnum("device_platform", [
+  "ios",
+  "android",
+  "web",
+  "unknown",
+]);
+
+export type PushProvider = InferEnum<typeof pushProviderEnum>;
+export type DevicePlatform = InferEnum<typeof devicePlatformEnum>;
 
 export const usersTable = pgTable(
   "users",
@@ -126,11 +136,69 @@ export const usersRelations = relations(usersTable, ({ one, many }) => ({
   dislikesReceived: many(dislikesTable, { relationName: "disliked" }),
   blocksSent: many(blocksTable, { relationName: "blocker" }),
   blocksReceived: many(blocksTable, { relationName: "blocked" }),
+  pushTokens: many(userPushTokensTable)
 }));
 
 export type InsertUser = typeof usersTable.$inferInsert;
 export type SelectUser = typeof usersTable.$inferSelect;
 export type SelectUserRow = typeof usersTable.$inferSelect;
+
+export const userPushTokensTable = pgTable(
+  "user_push_tokens",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+
+    userId: text("user_id")
+      .notNull()
+      .references(() => usersTable.id, { onDelete: "cascade" }),
+
+    token: text("token").notNull(),
+
+    provider: pushProviderEnum("provider").notNull().default("expo"),
+
+    platform: devicePlatformEnum("platform").notNull().default("unknown"),
+
+    deviceId: text("device_id"),
+
+    enabled: boolean("enabled").notNull().default(true),
+
+    lastUsedAt: timestamp("last_used_at", {
+      withTimezone: true,
+    }).defaultNow(),
+
+    createdAt: timestamp("created_at", {
+      withTimezone: true,
+    })
+      .notNull()
+      .defaultNow(),
+
+    updatedAt: timestamp("updated_at", {
+      withTimezone: true,
+    })
+      .notNull()
+      .defaultNow()
+      .$onUpdate(() => new Date()),
+  },
+  (table) => [
+    uniqueIndex("unique_user_push_token_idx").on(table.userId, table.token),
+    index("user_push_tokens_user_idx").on(table.userId),
+    index("user_push_tokens_provider_idx").on(table.provider),
+    index("user_push_tokens_enabled_idx").on(table.enabled),
+  ],
+);
+
+export const userPushTokensRelations = relations(
+  userPushTokensTable,
+  ({ one }) => ({
+    user: one(usersTable, {
+      fields: [userPushTokensTable.userId],
+      references: [usersTable.id],
+    }),
+  }),
+);
+
+export type InsertUserPushToken = typeof userPushTokensTable.$inferInsert;
+export type SelectUserPushToken = typeof userPushTokensTable.$inferSelect;
 
 export const profilesTable = pgTable("profiles", {
   id: uuid("id").defaultRandom().primaryKey(),

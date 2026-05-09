@@ -1,3 +1,5 @@
+import { Expo, type ExpoPushMessage } from "expo-server-sdk";
+
 import { premiumFeatureRepo } from "../../repo/premium.repo";
 import { userRepo } from "../../repo/user.repo";
 import { fcmAdmin } from "../../services/fcm";
@@ -6,43 +8,137 @@ import { logger } from "../../utils/logger";
 import { resolveTier } from "../../services/entitlements";
 import { PaymentRequiredError } from "../../middleware/error";
 
-const sendBoostStartedNotification = async (targetFcmToken: string) => {
-  if (!targetFcmToken) return;
-  try {
-    await fcmAdmin.messaging().send({
-      notification: {
-        title: "Takeoff Boost Activated! 🚀",
-        body: "Your profile is now being prioritized in discovery for the next 30 minutes.",
-      },
-      token: targetFcmToken,
-    });
-  } catch (err) {
-    logger.error({ err }, "[Premium] Error sending boost started notification");
+const expo = new Expo();
+
+type PushPayload = {
+  title: string;
+  body: string;
+  data?: Record<string, unknown>;
+};
+
+const normalizePushData = (data?: Record<string, unknown>) => {
+  return Object.fromEntries(
+    Object.entries(data ?? {}).map(([key, value]) => [key, String(value)]),
+  );
+};
+
+const sendExpoPushToUser = async (userId: string, payload: PushPayload) => {
+  const pushTokens = await userRepo.getEnabledPushTokensByUserId(userId);
+
+  const messages: ExpoPushMessage[] = pushTokens
+    .filter((pushToken) => pushToken.provider === "expo")
+    .filter((pushToken) => Expo.isExpoPushToken(pushToken.token))
+    .map((pushToken) => ({
+      to: pushToken.token,
+      sound: "default",
+      title: payload.title,
+      body: payload.body,
+      data: payload.data,
+    }));
+
+  if (!messages.length) return;
+
+  const chunks = expo.chunkPushNotifications(messages);
+
+  for (const chunk of chunks) {
+    try {
+      const tickets = await expo.sendPushNotificationsAsync(chunk);
+
+      logger.info(
+        {
+          provider: "expo",
+          tickets,
+          userId,
+        },
+        "[Premium] Expo push notification sent",
+      );
+    } catch (err) {
+      logger.error(
+        { err, userId },
+        "[Premium] Error sending Expo push notification",
+      );
+    }
   }
 };
 
-const sendBoostEndedNotification = async (targetFcmToken: string) => {
-  if (!targetFcmToken) return;
+const sendLegacyFcmPush = async (
+  fcmToken: string | null | undefined,
+  payload: PushPayload,
+) => {
+  if (!fcmToken) return;
+
   try {
     await fcmAdmin.messaging().send({
       notification: {
-        title: "Boost Complete 🛬",
-        body: "Your 30-minute Takeoff Boost has ended. Check your matches!",
+        title: payload.title,
+        body: payload.body,
       },
-      token: targetFcmToken,
+      data: normalizePushData(payload.data),
+      token: fcmToken,
     });
+
+    logger.info(
+      { provider: "fcm" },
+      "[Premium] Legacy FCM push notification sent",
+    );
   } catch (err) {
-    logger.error({ err }, "[Premium] Error sending boost ended notification");
+    logger.error(
+      { err },
+      "[Premium] Error sending legacy FCM push notification",
+    );
   }
+};
+
+const sendPushToUser = async (
+  user: {
+    id: string;
+    fcmToken?: string | null;
+  },
+  payload: PushPayload,
+) => {
+  await Promise.all([
+    sendExpoPushToUser(user.id, payload),
+    sendLegacyFcmPush(user.fcmToken, payload),
+  ]);
+};
+
+const sendBoostStartedNotification = async (user: {
+  id: string;
+  fcmToken?: string | null;
+}) => {
+  await sendPushToUser(user, {
+    title: "Takeoff Boost Activated! 🚀",
+    body: "Your profile is now being prioritized in discovery for the next 30 minutes.",
+    data: {
+      type: "BOOST_STARTED",
+      action: "OPEN_DISCOVERY",
+    },
+  });
+};
+
+const sendBoostEndedNotification = async (user: {
+  id: string;
+  fcmToken?: string | null;
+}) => {
+  await sendPushToUser(user, {
+    title: "Boost Complete 🛬",
+    body: "Your 30-minute Takeoff Boost has ended. Check your matches!",
+    data: {
+      type: "BOOST_ENDED",
+      action: "OPEN_MATCHES",
+    },
+  });
 };
 
 export const premiumService = {
   boostUser: async (userId: string) => {
     const user = await userRepo.getUserById(userId);
+
     await premiumFeatureRepo.ensureSubscriptionAllowances(
       userId,
       resolveTier(user?.subscriptionType),
     );
+
     const updatedWallet = await premiumFeatureRepo.useBoost(userId, 30);
 
     if (!updatedWallet) {
@@ -65,16 +161,15 @@ export const premiumService = {
     await cacheUtils.invalidateUserDiscoveryCache(userId);
 
     userRepo
-      .getUserDetailsById(userId)
+      .getUserById(userId)
       .then((user) => {
-        if (user?.fcmToken) {
-          sendBoostStartedNotification(user.fcmToken);
-        }
+        if (!user) return;
+        return sendBoostStartedNotification(user);
       })
       .catch((err) =>
         logger.error(
-          { err },
-          "[Premium] Failed to fetch user for boost notification",
+          { err, userId },
+          "[Premium] Failed to send boost started notification",
         ),
       );
 
@@ -85,15 +180,17 @@ export const premiumService = {
     const premium = await premiumFeatureRepo.getFeaturesByUserId(userId);
 
     if (!premium || !premium.visibilityBoost) return 1;
+
     if (premium.expiresAt && new Date(premium.expiresAt) < new Date()) {
       return 1;
     }
 
     let multiplier = 6;
+
     if (
       premium.lastBoostedAt &&
       new Date(premium.lastBoostedAt) >
-        new Date(Date.now() - 24 * 60 * 60 * 1000)
+      new Date(Date.now() - 24 * 60 * 60 * 1000)
     ) {
       multiplier = 8;
     }
@@ -125,6 +222,7 @@ export const premiumService = {
       }
 
       let multiplier = 6;
+
       if (
         premium.lastBoostedAt &&
         new Date(premium.lastBoostedAt) > oneDayAgo
@@ -148,21 +246,23 @@ export const premiumService = {
     try {
       const expiredUsers = await premiumFeatureRepo.deactivateExpiredBoosts();
 
-      if (expiredUsers.length > 0) {
-        logger.info(
-          { expiredBoostCount: expiredUsers.length },
-          "deactivated expired boosts",
-        );
-        await Promise.all(
-          expiredUsers.map(async (u) => {
-            await cacheUtils.invalidateUserDiscoveryCache(u.userId);
-            const user = await userRepo.getUserDetailsById(u.userId);
-            if (user?.fcmToken) {
-              await sendBoostEndedNotification(user.fcmToken);
-            }
-          }),
-        );
-      }
+      if (!expiredUsers.length) return;
+
+      logger.info(
+        { expiredBoostCount: expiredUsers.length },
+        "deactivated expired boosts",
+      );
+
+      await Promise.all(
+        expiredUsers.map(async (expiredUser) => {
+          await cacheUtils.invalidateUserDiscoveryCache(expiredUser.userId);
+
+          const user = await userRepo.getUserById(expiredUser.userId);
+          if (!user) return;
+
+          await sendBoostEndedNotification(user);
+        }),
+      );
     } catch (error) {
       logger.error({ error }, "[Premium] Error cleaning up expired boosts");
     }

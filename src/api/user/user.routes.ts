@@ -16,6 +16,7 @@ import {
   routeRateLimit,
 } from "../../config/rate-limits";
 import { ErrorResponseSchema, NotFoundError } from "../../middleware/error";
+import { fcmAdmin } from "../../services/fcm";
 /**
  * ---------------------------------------
  * SHARED RESPONSE SCHEMAS
@@ -251,7 +252,27 @@ export const userRoutes = new Elysia({ name: "routes.user" })
       },
     },
   )
-
+  // .post(
+  //   "/push-token/test",
+  //   async ({ body }) => {
+  //     return await userService.testExpoPushNotification(body.token);
+  //   },
+  //   {
+  //     body: t.Object({
+  //       token: t.String(),
+  //     }),
+  //     detail: {
+  //       tags: ["User"],
+  //       summary: "Test Expo push notification",
+  //     },
+  //     response: {
+  //       200: t.Object({
+  //         tickets: t.Array(t.Any()),
+  //       }),
+  //       400: ErrorResponseSchema,
+  //     },
+  //   },
+  // )
   /**
    * ---------------------------------------
    * UPDATE FCM TOKEN
@@ -260,20 +281,96 @@ export const userRoutes = new Elysia({ name: "routes.user" })
   .put(
     "/fcm-token",
     async ({ body }) => {
-      await userRepo.updateUser(body.userId, {
-        fcmToken: body.fcmToken,
+      await userService.registerPushToken({
+        userId: body.userId,
+        token: body.fcmToken,
+        provider: "fcm",
+        platform: body.platform ?? "unknown",
+        deviceId: body.deviceId,
       });
 
       return {
-        message: "Token updated successfully",
+        message: "FCM token updated successfully",
       };
     },
     {
       body: t.Object({
         userId: t.String(),
         fcmToken: t.String(),
+        platform: t.Optional(
+          t.Union([
+            t.Literal("ios"),
+            t.Literal("android"),
+            t.Literal("web"),
+            t.Literal("unknown"),
+          ]),
+        ),
+        deviceId: t.Optional(t.String()),
       }),
       detail: { tags: ["User"], summary: "Update user's FCM token" },
+      response: {
+        200: t.Object({
+          message: t.String(),
+        }),
+      },
+    },
+  )
+  .put(
+    "/push-token",
+    async ({ body }) => {
+      await userService.registerPushToken({
+        userId: body.userId,
+        token: body.token,
+        provider: body.provider ?? "expo",
+        platform: body.platform ?? "unknown",
+        deviceId: body.deviceId,
+      });
+
+      return {
+        message: "Push token updated successfully",
+      };
+    },
+    {
+      body: t.Object({
+        userId: t.String(),
+        token: t.String(),
+        provider: t.Optional(t.Union([t.Literal("expo"), t.Literal("fcm")])),
+        platform: t.Optional(
+          t.Union([
+            t.Literal("ios"),
+            t.Literal("android"),
+            t.Literal("web"),
+            t.Literal("unknown"),
+          ]),
+        ),
+        deviceId: t.Optional(t.String()),
+      }),
+      detail: { tags: ["User"], summary: "Register user's push token" },
+      response: {
+        200: t.Object({
+          message: t.String(),
+        }),
+      },
+    },
+  )
+  .delete(
+    "/push-token",
+    async ({ body }) => {
+      await userService.unregisterPushToken({
+        userId: body.userId,
+        token: body.token,
+      });
+
+      return {
+        message: "Push token disabled successfully",
+      };
+    },
+    {
+      body: t.Object({
+        userId: t.String(),
+        token: t.String(),
+      }),
+      detail: { tags: ["User"], summary: "Disable user's push token" },
       response: {
         200: t.Object({
           message: t.String(),

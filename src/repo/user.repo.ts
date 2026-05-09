@@ -25,6 +25,8 @@ import {
   SelectImage,
   SelectProfile,
   SelectPreferences,
+  SelectUserPushToken,
+  userPushTokensTable,
 } from "../db/schema";
 import { DrizzleDB, withDb } from "../db/db";
 import { GetUsersFilters } from "../api/user/user.services";
@@ -192,6 +194,22 @@ export const userRepo = {
       .returning();
     return user;
   },
+  getEnabledPushTokensByUserId: async (
+    userId: string,
+    db?: DrizzleDB,
+  ): Promise<SelectUserPushToken[]> => {
+    const dbInstance = withDb(db);
+
+    return dbInstance
+      .select()
+      .from(userPushTokensTable)
+      .where(
+        and(
+          eq(userPushTokensTable.userId, userId),
+          eq(userPushTokensTable.enabled, true),
+        ),
+      );
+  },
 
   findUsersWithFilters: async (
     filters: GetUsersFilters & { cursor?: string | null; limit?: number },
@@ -229,11 +247,11 @@ export const userRepo = {
     const nextCursor =
       hasMorePages && lastUser
         ? encodeCursor<Cursor>({
-            createdAt:
-              lastUser.user.createdAt?.toISOString() ??
-              new Date().toISOString(),
-            id: lastUser.user.id,
-          })
+          createdAt:
+            lastUser.user.createdAt?.toISOString() ??
+            new Date().toISOString(),
+          id: lastUser.user.id,
+        })
         : null;
 
     // Combine users and fetch their images

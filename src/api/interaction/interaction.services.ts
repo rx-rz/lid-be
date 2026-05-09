@@ -1,3 +1,5 @@
+import { Expo, type ExpoPushMessage } from "expo-server-sdk";
+
 import { interactionRepo } from "../../repo/interaction.repo";
 import { matchRepo } from "../../repo/match.repo";
 import { userRepo } from "../../repo/user.repo";
@@ -14,6 +16,8 @@ import {
   PaymentRequiredError,
 } from "../../middleware/error";
 
+const expo = new Expo();
+
 const enforceSwipeLimit = async (
   userId: string,
   subscriptionType: string | null,
@@ -29,7 +33,9 @@ const formatUserWithAge = ({ user, ...rest }: any) => {
   if (!user) {
     return { ...rest, user: null };
   }
+
   const { birthday, ...userRest } = user;
+
   return {
     ...rest,
     user: {
@@ -39,47 +45,134 @@ const formatUserWithAge = ({ user, ...rest }: any) => {
   };
 };
 
-export const sendLikeNotification = async (
-  targetFcmToken: string,
-  likerName: string,
-  isSuperLike: boolean,
-) => {
-  if (!targetFcmToken) return;
+type NotificationPayload = {
+  title: string;
+  body: string;
+  data?: Record<string, unknown>;
+};
 
-  try {
-    await fcmAdmin.messaging().send({
-      notification: {
-        title: isSuperLike
-          ? `🌟 Super Like from ${likerName}!`
-          : `New Like 💖 from ${likerName}`,
-        body: `${likerName} just liked you! Open the app to check.`,
-      },
-      token: targetFcmToken,
-    });
-    logger.info({ notificationType: "like" }, "push notification sent");
-  } catch (err) {
-    logger.error({ err }, "[Interaction] Error sending FCM like notification");
+const sendExpoNotifications = async (
+  targetUserId: string,
+  payload: NotificationPayload,
+) => {
+  const pushTokens = await userRepo.getEnabledPushTokensByUserId(targetUserId);
+
+  const expoMessages: ExpoPushMessage[] = pushTokens
+    .filter((pushToken) => pushToken.provider === "expo")
+    .filter((pushToken) => Expo.isExpoPushToken(pushToken.token))
+    .map((pushToken) => ({
+      to: pushToken.token,
+      sound: "default",
+      title: payload.title,
+      body: payload.body,
+      data: payload.data,
+    }));
+
+  if (!expoMessages.length) return;
+
+  const chunks = expo.chunkPushNotifications(expoMessages);
+
+  for (const chunk of chunks) {
+    try {
+      const tickets = await expo.sendPushNotificationsAsync(chunk);
+
+      logger.info(
+        {
+          notificationProvider: "expo",
+          targetUserId,
+          tickets,
+        },
+        "expo push notification sent",
+      );
+    } catch (err) {
+      logger.error(
+        { err, targetUserId },
+        "[Interaction] Error sending Expo push notification",
+      );
+    }
   }
 };
 
-export const sendMatchNotification = async (
-  targetFcmToken: string,
-  partnerName: string,
+const sendLegacyFcmNotification = async (
+  targetFcmToken: string | null | undefined,
+  payload: NotificationPayload,
 ) => {
   if (!targetFcmToken) return;
 
   try {
     await fcmAdmin.messaging().send({
       notification: {
-        title: `It's a Match! 🎉`,
-        body: `You and ${partnerName} liked each other. Send a message!`,
+        title: payload.title,
+        body: payload.body,
       },
+      data: Object.fromEntries(
+        Object.entries(payload.data ?? {}).map(([key, value]) => [
+          key,
+          String(value),
+        ]),
+      ),
       token: targetFcmToken,
     });
-    logger.info({ notificationType: "match" }, "push notification sent");
+
+    logger.info(
+      { notificationProvider: "fcm" },
+      "legacy fcm push notification sent",
+    );
   } catch (err) {
-    logger.error({ err }, "[Interaction] Error sending FCM match notification");
+    logger.error(
+      { err },
+      "[Interaction] Error sending legacy FCM push notification",
+    );
   }
+};
+
+const sendPushNotificationToUser = async (
+  targetUser: {
+    id: string;
+    fcmToken?: string | null;
+  },
+  payload: NotificationPayload,
+) => {
+  await Promise.all([
+    sendExpoNotifications(targetUser.id, payload),
+    sendLegacyFcmNotification(targetUser.fcmToken, payload),
+  ]);
+};
+
+export const sendLikeNotification = async (
+  targetUser: {
+    id: string;
+    fcmToken?: string | null;
+  },
+  likerName: string,
+  isSuperLike: boolean,
+) => {
+  await sendPushNotificationToUser(targetUser, {
+    title: isSuperLike
+      ? `🌟 Super Like from ${likerName}!`
+      : `New Like 💖 from ${likerName}`,
+    body: `${likerName} just liked you! Open the app to check.`,
+    data: {
+      type: "LIKE",
+      isSuperLike,
+    },
+  });
+};
+
+export const sendMatchNotification = async (
+  targetUser: {
+    id: string;
+    fcmToken?: string | null;
+  },
+  partnerName: string,
+) => {
+  await sendPushNotificationToUser(targetUser, {
+    title: "It's a Match! 🎉",
+    body: `You and ${partnerName} liked each other. Send a message!`,
+    data: {
+      type: "MATCH",
+    },
+  });
 };
 
 export const interactionService = {
@@ -107,6 +200,7 @@ export const interactionService = {
       likerId,
       likedId,
     );
+
     if (existingLike) {
       throw new ConflictError("Like already exists.", {
         code: "LIKE_ALREADY_EXISTS",
@@ -118,13 +212,16 @@ export const interactionService = {
         likerId,
         resolveTier(likerExists.subscription),
       );
+
       const updatedWallet = await premiumFeatureRepo.useSuperLike(likerId);
+
       if (!updatedWallet) {
         throw new PaymentRequiredError(
           "You are out of Super Likes. Please upgrade or buy more.",
           { code: "INSUFFICIENT_SUPERLIKES" },
         );
       }
+
       logger.info(
         {
           userId: likerId,
@@ -151,13 +248,12 @@ export const interactionService = {
         const mutualLikeIsAfter = mutualLike.likedAt! >= encounterEnd;
 
         if (!currentLikeIsAfter || !mutualLikeIsAfter) {
-          if (likedExists.fcmToken) {
-            sendLikeNotification(
-              likedExists.fcmToken,
-              likerExists.displayName || "Someone",
-              superLike,
-            );
-          }
+          void sendLikeNotification(
+            likedExists,
+            likerExists.displayName || "Someone",
+            superLike,
+          );
+
           return { like };
         }
       }
@@ -165,30 +261,26 @@ export const interactionService = {
       const newMatch = await matchRepo.createMatch(likerId, likedId);
       if (!newMatch) throw new InternalServerError("Failed to create match.");
 
-      if (likedExists.fcmToken) {
-        sendMatchNotification(
-          likedExists.fcmToken,
-          likerExists.displayName || "Someone",
-        );
-      }
-      if (likerExists.fcmToken) {
-        sendMatchNotification(
-          likerExists.fcmToken,
-          likedExists.displayName || "Someone",
-        );
-      }
+      void sendMatchNotification(
+        likedExists,
+        likerExists.displayName || "Someone",
+      );
+
+      void sendMatchNotification(
+        likerExists,
+        likedExists.displayName || "Someone",
+      );
 
       logger.info({ likerId, likedId }, "It's a match!");
+
       return { like, match: newMatch };
     }
 
-    if (likedExists.fcmToken) {
-      sendLikeNotification(
-        likedExists.fcmToken,
-        likerExists.displayName || "Someone",
-        superLike,
-      );
-    }
+    void sendLikeNotification(
+      likedExists,
+      likerExists.displayName || "Someone",
+      superLike,
+    );
 
     return { like };
   },
@@ -213,6 +305,7 @@ export const interactionService = {
       dislikerId,
       dislikedId,
     );
+
     if (existingLike) {
       throw new ConflictError("Cannot dislike a user you have already liked.", {
         code: "LIKE_ALREADY_EXISTS",
@@ -223,6 +316,7 @@ export const interactionService = {
       dislikerId,
       dislikedId,
     );
+
     if (existingDislike) {
       throw new ConflictError("Dislike already exists.", {
         code: "DISLIKE_ALREADY_EXISTS",
@@ -248,6 +342,7 @@ export const interactionService = {
     const receivedLikes = await interactionRepo.getReceivedLikes(userId);
     const visibleLikes =
       limit === false ? receivedLikes : receivedLikes.slice(0, limit);
+
     return visibleLikes.map(formatUserWithAge);
   },
 
@@ -297,7 +392,9 @@ export const interactionService = {
       dislikerId,
       resolveTier(user?.subscriptionType),
     );
+
     const updatedWallet = await premiumFeatureRepo.useRecall(dislikerId);
+
     if (!updatedWallet) {
       throw new PaymentRequiredError(
         "You are out of Recalls. Please upgrade or buy more.",

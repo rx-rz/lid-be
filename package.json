@@ -29,6 +29,7 @@
     "elysia": "latest",
     "elysia-clerk": "^0.13.2",
     "elysia-rate-limit": "^4.5.0",
+    "expo-server-sdk": "^6.1.0",
     "firebase-admin": "^13.6.1",
     "ioredis": "^5.9.3",
     "node-cron": "^4.2.1",
