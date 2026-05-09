@@ -98,7 +98,7 @@ const sendPushToUser = async (
 ) => {
   await Promise.all([
     sendExpoPushToUser(user.id, payload),
-    sendLegacyFcmPush(user.fcmToken, payload),
+    // sendLegacyFcmPush(user.fcmToken, payload),
   ]);
 };
 
