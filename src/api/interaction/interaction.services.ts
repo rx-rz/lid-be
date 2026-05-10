@@ -180,6 +180,7 @@ export const interactionService = {
     likerId: string,
     likedId: string,
     superLike: boolean = false,
+    isLoveLetter: boolean = false,
   ) => {
     if (likerId === likedId) {
       throw new BadRequestError("You cannot like yourself.", {
@@ -232,9 +233,40 @@ export const interactionService = {
       );
     }
 
+    if (isLoveLetter) {
+      await premiumFeatureRepo.ensureSubscriptionAllowances(
+        likerId,
+        resolveTier(likerExists.subscription),
+      );
+
+      const updatedWallet = await premiumFeatureRepo.useLoveLetter(likerId);
+
+      if (!updatedWallet) {
+        throw new PaymentRequiredError(
+          "You are out of Love Letters. Please upgrade or buy more.",
+          { code: "INSUFFICIENT_LOVE_LETTERS" },
+        );
+      }
+
+      logger.info(
+        {
+          userId: likerId,
+          feature: "loveLetters",
+          remaining: updatedWallet.loveLettersRemaining,
+          addOnRemaining: updatedWallet.addOnLoveLettersRemaining,
+        },
+        "usage consumed",
+      );
+    }
+
     await enforceSwipeLimit(likerId, likerExists.subscription);
 
-    const like = await interactionRepo.createLike(likerId, likedId, superLike);
+    const like = await interactionRepo.createLike(
+      likerId,
+      likedId,
+      superLike,
+      isLoveLetter,
+    );
     if (!like) throw new InternalServerError("Failed to create like.");
 
     const mutualLike = await interactionRepo.getExistingLike(likedId, likerId);

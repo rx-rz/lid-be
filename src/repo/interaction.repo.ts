@@ -27,10 +27,11 @@ export const interactionRepo = {
     likerId: string,
     likedId: string,
     superLike: boolean = false,
+    isLoveLetter: boolean = false,
   ) => {
     const [like] = await db
       .insert(likesTable)
-      .values({ likerId, likedId, superLike })
+      .values({ likerId, likedId, superLike, isLoveLetter })
       .returning();
     return like;
   },
@@ -63,6 +64,7 @@ export const interactionRepo = {
         likedId: likesTable.likedId,
         likedAt: likesTable.likedAt,
         superLike: likesTable.superLike,
+        isLoveLetter: likesTable.isLoveLetter,
         user: {
           id: usersTable.id,
           name: usersTable.displayName,
@@ -87,6 +89,7 @@ export const interactionRepo = {
         likedId: likesTable.likerId,
         likedAt: likesTable.likedAt,
         superLike: likesTable.superLike,
+        isLoveLetter: likesTable.isLoveLetter,
         user: {
           id: usersTable.id,
           name: usersTable.displayName,
@@ -199,6 +202,7 @@ export const interactionRepo = {
         userId: likesTable.likedId,
         likedAt: likesTable.likedAt,
         superLike: likesTable.superLike,
+        isLoveLetter: likesTable.isLoveLetter,
         user: {
           id: usersTable.id,
           name: usersTable.displayName,

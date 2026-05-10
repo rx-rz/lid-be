@@ -21,6 +21,7 @@ const LikesListSchema = t.Array(
     userId: t.Optional(t.String()),
     likedAt: t.Union([t.Date(), t.String()]),
     superLike: t.Boolean(),
+    isLoveLetter: t.Boolean(),
     images: t.Array(t.String()),
     user: InteractionUserSchema,
   }),
@@ -35,6 +36,7 @@ export const interactionRoutes = new Elysia({ name: "routes.interaction" })
         body.likerId,
         body.likedId,
         body.superLike,
+        body.isLoveLetter,
       );
       set.status = 201;
       return result as any;
@@ -44,6 +46,7 @@ export const interactionRoutes = new Elysia({ name: "routes.interaction" })
         likerId: t.String(),
         likedId: t.String(),
         superLike: t.Optional(t.Boolean()),
+        isLoveLetter: t.Optional(t.Boolean()),
       }),
       response: {
         201: t.Any(),

@@ -385,6 +385,7 @@ export const likesTable = pgTable(
       .references(() => usersTable.id, { onDelete: "cascade" }),
     likedAt: timestamp("liked_at", { withTimezone: true }).defaultNow(),
     superLike: boolean("super_like").default(false).notNull(),
+    isLoveLetter: boolean("is_love_letter").default(false).notNull(),
   },
   (table) => [
     primaryKey({ columns: [table.likerId, table.likedId] }),

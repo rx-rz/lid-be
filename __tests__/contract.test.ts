@@ -377,6 +377,30 @@ describe("contract shapes", () => {
     expect(await likeResponse.json()).toEqual({
       like: { likerId: "u1", likedId: "u2", superLike: false },
     });
+    expect(interactionService.likeUser).toHaveBeenLastCalledWith(
+      "u1",
+      "u2",
+      undefined,
+      undefined,
+    );
+
+    const loveLetterLikeResponse = await app.handle(
+      jsonRequest("/api/v1/likes", {
+        method: "POST",
+        body: JSON.stringify({
+          likerId: "u1",
+          likedId: "u2",
+          isLoveLetter: true,
+        }),
+      }),
+    );
+    expect(loveLetterLikeResponse.status).toBe(201);
+    expect(interactionService.likeUser).toHaveBeenLastCalledWith(
+      "u1",
+      "u2",
+      undefined,
+      true,
+    );
 
     const dislikeResponse = await app.handle(
       jsonRequest("/api/v1/dislikes", {
