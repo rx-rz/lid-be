@@ -30,7 +30,7 @@ export const TIER_PERMISSIONS: Record<SubscriptionTier, AppFeatures> = {
     videoCalls: 2,
     recallsPerWeek: 0,
     hasAdvancedFilters: false,
-    myLikesLimit: false,
+    myLikesLimit: 0,
     fullStatus: false,
     profileViews: false,
     priorityAisle: false,

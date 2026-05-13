@@ -1,5 +1,5 @@
 import { desc, eq, and, sql, exists } from "drizzle-orm";
-import { db } from "../db/db";
+import { db, DrizzleDB, withDb } from "../db/db";
 import {
   likesTable,
   dislikesTable,
@@ -12,8 +12,9 @@ import { alias } from "drizzle-orm/pg-core";
 import { TooManyRequestsError } from "../middleware/error";
 
 export const interactionRepo = {
-  getExistingLike: async (likerId: string, likedId: string) => {
-    const [like] = await db
+  getExistingLike: async (likerId: string, likedId: string, tx?: DrizzleDB) => {
+    const dbInstance = withDb(tx);
+    const [like] = await dbInstance
       .select()
       .from(likesTable)
       .where(
@@ -28,16 +29,24 @@ export const interactionRepo = {
     likedId: string,
     superLike: boolean = false,
     isLoveLetter: boolean = false,
+    tx?: DrizzleDB,
   ) => {
-    const [like] = await db
+    const dbInstance = withDb(tx);
+    const [like] = await dbInstance
       .insert(likesTable)
       .values({ likerId, likedId, superLike, isLoveLetter })
+      .onConflictDoNothing()
       .returning();
     return like;
   },
 
-  getExistingDislike: async (dislikerId: string, dislikedId: string) => {
-    const [dislike] = await db
+  getExistingDislike: async (
+    dislikerId: string,
+    dislikedId: string,
+    tx?: DrizzleDB,
+  ) => {
+    const dbInstance = withDb(tx);
+    const [dislike] = await dbInstance
       .select()
       .from(dislikesTable)
       .where(
@@ -50,10 +59,16 @@ export const interactionRepo = {
     return dislike;
   },
 
-  createDislike: async (dislikerId: string, dislikedId: string) => {
-    const [dislike] = await db
+  createDislike: async (
+    dislikerId: string,
+    dislikedId: string,
+    tx?: DrizzleDB,
+  ) => {
+    const dbInstance = withDb(tx);
+    const [dislike] = await dbInstance
       .insert(dislikesTable)
       .values({ dislikerId, dislikedId })
+      .onConflictDoNothing()
       .returning();
     return dislike;
   },
@@ -152,18 +167,20 @@ export const interactionRepo = {
   checkAndIncrementSwipeLimit: async (
     userId: string,
     limit: number,
+    tx?: DrizzleDB,
   ): Promise<void> => {
+    const dbInstance = withDb(tx);
     const now = new Date();
     const windowCutoff = new Date(now.getTime() - 24 * 60 * 60 * 1000);
 
-    const [record] = await db
+    const [record] = await dbInstance
       .select()
       .from(swipeLimitsTable)
       .where(eq(swipeLimitsTable.userId, userId))
       .limit(1);
 
     if (!record || record.windowStart < windowCutoff) {
-      await db
+      await dbInstance
         .insert(swipeLimitsTable)
         .values({ userId, swipeCount: 1, windowStart: now })
         .onConflictDoUpdate({
@@ -188,7 +205,7 @@ export const interactionRepo = {
       });
     }
 
-    await db
+    await dbInstance
       .update(swipeLimitsTable)
       .set({ swipeCount: sql`${swipeLimitsTable.swipeCount} + 1` })
       .where(eq(swipeLimitsTable.userId, userId));

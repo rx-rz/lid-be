@@ -1,5 +1,5 @@
 import { and, desc, eq, exists, isNotNull, not, or, sql } from "drizzle-orm";
-import { db } from "../db/db";
+import { db, DrizzleDB, withDb } from "../db/db";
 import {
   matchesTable,
   usersTable,
@@ -11,12 +11,34 @@ import {
 } from "../db/schema";
 
 export const matchRepo = {
-  createMatch: async (user1Id: string, user2Id: string) => {
-    const [match] = await db
+  normalizePair: (user1Id: string, user2Id: string) => {
+    const [first, second] = [user1Id, user2Id].sort();
+    return { user1Id: first, user2Id: second };
+  },
+
+  createMatch: async (user1Id: string, user2Id: string, tx?: DrizzleDB) => {
+    const dbInstance = withDb(tx);
+    const normalized = matchRepo.normalizePair(user1Id, user2Id);
+    const [match] = await dbInstance
       .insert(matchesTable)
-      .values({ user1Id, user2Id })
+      .values(normalized)
+      .onConflictDoNothing()
       .returning();
-    return match;
+    return (
+      match ||
+      (
+        await dbInstance
+          .select()
+          .from(matchesTable)
+          .where(
+            and(
+              eq(matchesTable.user1Id, normalized.user1Id),
+              eq(matchesTable.user2Id, normalized.user2Id),
+            ),
+          )
+          .limit(1)
+      )[0]
+    );
   },
 
   getMatchesByUserId: async (userId: string) => {

@@ -1,5 +1,5 @@
 import { eq, sql, and, gt, inArray } from "drizzle-orm";
-import { db } from "../db/db";
+import { db, DrizzleDB, withDb } from "../db/db";
 import {
   premiumFeaturesTable,
   type InsertPremiumFeature,
@@ -89,8 +89,9 @@ const subscriptionAllowanceFields = (
 };
 
 export const premiumFeatureRepo = {
-  getFeaturesByUserId: async (userId: string) => {
-    const [features] = await db
+  getFeaturesByUserId: async (userId: string, tx?: DrizzleDB) => {
+    const dbInstance = withDb(tx);
+    const [features] = await dbInstance
       .select()
       .from(premiumFeaturesTable)
       .where(eq(premiumFeaturesTable.userId, userId))
@@ -109,8 +110,10 @@ export const premiumFeatureRepo = {
   upsertFeatures: async (
     userId: string,
     data: Partial<Omit<InsertPremiumFeature, "userId">>,
+    tx?: DrizzleDB,
   ) => {
-    const [features] = await db
+    const dbInstance = withDb(tx);
+    const [features] = await dbInstance
       .insert(premiumFeaturesTable)
       .values({ userId, ...data } as InsertPremiumFeature)
       .onConflictDoUpdate({
@@ -125,11 +128,13 @@ export const premiumFeatureRepo = {
   ensureSubscriptionAllowances: async (
     userId: string,
     tier: SubscriptionTier,
+    tx?: DrizzleDB,
   ) => {
-    const existing = await premiumFeatureRepo.getFeaturesByUserId(userId);
+    const dbInstance = withDb(tx);
+    const existing = await premiumFeatureRepo.getFeaturesByUserId(userId, tx);
     if (existing) return existing;
 
-    const [features] = await db
+    const [features] = await dbInstance
       .insert(premiumFeaturesTable)
       .values({
         userId,
@@ -138,18 +143,19 @@ export const premiumFeatureRepo = {
       .onConflictDoNothing({ target: premiumFeaturesTable.userId })
       .returning();
 
-    return features || (await premiumFeatureRepo.getFeaturesByUserId(userId));
+    return features || (await premiumFeatureRepo.getFeaturesByUserId(userId, tx));
   },
 
   consumeFeature: async (
     userId: string,
     feature: EntitlementFeature,
-    options: { unlimited?: boolean; activateBoost?: boolean } = {},
+    options: { unlimited?: boolean; activateBoost?: boolean; tx?: DrizzleDB } = {},
   ) => {
+    const dbInstance = withDb(options.tx);
     if (options.unlimited) {
       const features =
-        (await premiumFeatureRepo.getFeaturesByUserId(userId)) ||
-        (await premiumFeatureRepo.upsertFeatures(userId, {}));
+        (await premiumFeatureRepo.getFeaturesByUserId(userId, options.tx)) ||
+        (await premiumFeatureRepo.upsertFeatures(userId, {}, options.tx));
 
       return { source: "unlimited" as const, features };
     }
@@ -159,8 +165,8 @@ export const premiumFeatureRepo = {
       (await premiumFeatureRepo.hasActiveCruisePass(userId))
     ) {
       const features =
-        (await premiumFeatureRepo.getFeaturesByUserId(userId)) ||
-        (await premiumFeatureRepo.upsertFeatures(userId, {}));
+        (await premiumFeatureRepo.getFeaturesByUserId(userId, options.tx)) ||
+        (await premiumFeatureRepo.upsertFeatures(userId, {}, options.tx));
 
       return { source: "unlimited" as const, features };
     }
@@ -175,7 +181,7 @@ export const premiumFeatureRepo = {
         }
       : {};
 
-    const [subscriptionUpdate] = await db
+    const [subscriptionUpdate] = await dbInstance
       .update(premiumFeaturesTable)
       .set({
         [columns.subscriptionKey]: sql`${columns.subscription} - 1`,
@@ -193,7 +199,7 @@ export const premiumFeatureRepo = {
       return { source: "subscription" as const, features: subscriptionUpdate };
     }
 
-    const [addOnUpdate] = await db
+    const [addOnUpdate] = await dbInstance
       .update(premiumFeaturesTable)
       .set({
         [columns.addOnKey]: sql`${columns.addOn} - 1`,
@@ -327,42 +333,52 @@ export const premiumFeatureRepo = {
     });
   },
 
-  useSuperLike: async (userId: string) => {
-    const consumed = await premiumFeatureRepo.consumeFeature(
-      userId,
-      "superlikes",
-    );
+  useSuperLike: async (userId: string, tx?: DrizzleDB) => {
+    const consumed = await premiumFeatureRepo.consumeFeature(userId, "superlikes", {
+      tx,
+    });
     return consumed?.features;
   },
 
-  useLoveLetter: async (userId: string) => {
+  useLoveLetter: async (userId: string, tx?: DrizzleDB) => {
     const consumed = await premiumFeatureRepo.consumeFeature(
       userId,
       "loveLetters",
+      { tx },
     );
     return consumed?.features;
   },
 
-  useRecall: async (userId: string) => {
-    const consumed = await premiumFeatureRepo.consumeFeature(userId, "recalls");
+  useRecall: async (userId: string, tx?: DrizzleDB) => {
+    const consumed = await premiumFeatureRepo.consumeFeature(userId, "recalls", {
+      tx,
+    });
     return consumed?.features;
   },
 
-  useVideoCall: async (userId: string) => {
+  useVideoCall: async (userId: string, tx?: DrizzleDB) => {
     const consumed = await premiumFeatureRepo.consumeFeature(
       userId,
       "videoCalls",
+      { tx },
     );
     return consumed?.features;
   },
 
-  useBoost: async (userId: string, durationMinutes: number = 30) => {
+  useBoost: async (
+    userId: string,
+    durationMinutes: number = 30,
+    tx?: DrizzleDB,
+  ) => {
+    const dbInstance = withDb(tx);
     const now = new Date();
-    const consumed = await premiumFeatureRepo.consumeFeature(userId, "boosts");
+    const consumed = await premiumFeatureRepo.consumeFeature(userId, "boosts", {
+      tx,
+    });
 
     if (!consumed) return undefined;
 
-    const [updated] = await db
+    const [updated] = await dbInstance
       .update(premiumFeaturesTable)
       .set({
         visibilityBoost: true,

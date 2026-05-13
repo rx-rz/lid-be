@@ -24,6 +24,33 @@ const mapSubscriptionStatus = (
 const shouldKeepPaidTier = (paymentStatus: ReturnType<typeof mapSubscriptionStatus>) =>
   paymentStatus === "active" || paymentStatus === "past_due";
 
+const isSubscriptionTier = (tier: unknown): tier is SubscriptionTier =>
+  tier === "economy" ||
+  tier === "premium" ||
+  tier === "first-class" ||
+  tier === "weekender";
+
+const getStripeTier = (
+  product: Stripe.Product,
+  price?: Stripe.Price,
+): SubscriptionTier | null => {
+  const tier = product.metadata.tier || price?.metadata?.tier;
+  return isSubscriptionTier(tier) ? tier : null;
+};
+
+const requireStripeTier = (
+  product: Stripe.Product,
+  price?: Stripe.Price,
+): SubscriptionTier => {
+  const tier = getStripeTier(product, price);
+  if (!tier) {
+    throw new InternalServerError("Stripe product is missing valid tier metadata.", {
+      code: "STRIPE_TIER_METADATA_MISSING",
+    });
+  }
+  return tier;
+};
+
 const getCheckoutReturnBaseUrl = () =>
   (process.env.MOBILE_APP_URL || process.env.FRONTEND_URL || "http://localhost:3000")
     .replace(/\/$/, "");
@@ -138,6 +165,7 @@ export const stripeService = {
 
     return prices.data.map((price) => {
       const product = price.product as Stripe.Product;
+      const tier = getStripeTier(product, price);
       return {
         id: price.id,
         nickname: price.nickname,
@@ -145,10 +173,10 @@ export const stripeService = {
         interval: price.recurring?.interval,
         intervalCount: price.recurring?.interval_count,
         product: product.name,
-        tier: (product.metadata.tier as SubscriptionTier) || "economy",
+        tier,
         metadata: price.metadata,
       };
-    });
+    }).filter((plan) => plan.tier);
   },
 
   handleWebhookEvent: async (event: Stripe.Event) => {
@@ -213,8 +241,7 @@ export const stripeService = {
           break;
         }
 
-        const subscriptionTier =
-          (product.metadata.tier as SubscriptionTier) || "economy";
+        const subscriptionTier = requireStripeTier(product, lineItem.price);
 
         await paymentRepo.updateStatusByCustomerId(customerId, {
           paymentStatus: "active",
@@ -338,8 +365,7 @@ export const stripeService = {
           break;
         }
 
-        const subscriptionTier =
-          (product.metadata.tier as SubscriptionTier) || "economy";
+        const subscriptionTier = requireStripeTier(product, lineItem.price);
           
         const paymentStatus = mapSubscriptionStatus(subscription.status);
         const effectiveTier = shouldKeepPaidTier(paymentStatus)

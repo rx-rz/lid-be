@@ -1,5 +1,6 @@
 import { Expo, type ExpoPushMessage } from "expo-server-sdk";
 
+import { db, DrizzleDB } from "../../db/db";
 import { interactionRepo } from "../../repo/interaction.repo";
 import { matchRepo } from "../../repo/match.repo";
 import { userRepo } from "../../repo/user.repo";
@@ -21,12 +22,57 @@ const expo = new Expo();
 const enforceSwipeLimit = async (
   userId: string,
   subscriptionType: string | null,
+  tx?: DrizzleDB,
 ) => {
   const limit = entitlementService.getDailySwipeLimit(subscriptionType);
 
   if (limit !== "unlimited") {
-    await interactionRepo.checkAndIncrementSwipeLimit(userId, limit);
+    await interactionRepo.checkAndIncrementSwipeLimit(userId, limit, tx);
   }
+};
+
+const hasWalletBalance = (
+  wallet: any,
+  feature: "superlikes" | "loveLetters",
+) => {
+  if (feature === "superlikes") {
+    return (
+      (wallet?.superlikesRemaining ?? 0) > 0 ||
+      (wallet?.addOnSuperlikesRemaining ?? 0) > 0
+    );
+  }
+
+  return (
+    (wallet?.loveLettersRemaining ?? 0) > 0 ||
+    (wallet?.addOnLoveLettersRemaining ?? 0) > 0
+  );
+};
+
+const assertFeatureAvailableBeforeSwipe = async (
+  userId: string,
+  subscriptionType: string | null,
+  feature: "superlikes" | "loveLetters",
+) => {
+  await premiumFeatureRepo.ensureSubscriptionAllowances(
+    userId,
+    resolveTier(subscriptionType),
+  );
+
+  const wallet = await premiumFeatureRepo.getFeaturesByUserId(userId);
+
+  if (hasWalletBalance(wallet, feature)) return;
+
+  if (feature === "superlikes") {
+    throw new PaymentRequiredError(
+      "You are out of Super Likes. Please upgrade or buy more.",
+      { code: "INSUFFICIENT_SUPERLIKES" },
+    );
+  }
+
+  throw new PaymentRequiredError(
+    "You are out of Love Letters. Please upgrade or buy more.",
+    { code: "INSUFFICIENT_LOVE_LETTERS" },
+  );
 };
 
 const formatUserWithAge = ({ user, ...rest }: any) => {
@@ -208,70 +254,108 @@ export const interactionService = {
       });
     }
 
+    const existingDislike = await interactionRepo.getExistingDislike(
+      likerId,
+      likedId,
+    );
+
+    if (existingDislike) {
+      throw new ConflictError("Cannot like a user you have already disliked.", {
+        code: "DISLIKE_ALREADY_EXISTS",
+      });
+    }
+
     if (superLike) {
-      await premiumFeatureRepo.ensureSubscriptionAllowances(
+      await assertFeatureAvailableBeforeSwipe(
         likerId,
-        resolveTier(likerExists.subscription),
-      );
-
-      const updatedWallet = await premiumFeatureRepo.useSuperLike(likerId);
-
-      if (!updatedWallet) {
-        throw new PaymentRequiredError(
-          "You are out of Super Likes. Please upgrade or buy more.",
-          { code: "INSUFFICIENT_SUPERLIKES" },
-        );
-      }
-
-      logger.info(
-        {
-          userId: likerId,
-          feature: "superlikes",
-          remaining: updatedWallet.superlikesRemaining,
-        },
-        "usage consumed",
+        likerExists.subscription,
+        "superlikes",
       );
     }
 
     if (isLoveLetter) {
-      await premiumFeatureRepo.ensureSubscriptionAllowances(
+      await assertFeatureAvailableBeforeSwipe(
         likerId,
-        resolveTier(likerExists.subscription),
-      );
-
-      const updatedWallet = await premiumFeatureRepo.useLoveLetter(likerId);
-
-      if (!updatedWallet) {
-        throw new PaymentRequiredError(
-          "You are out of Love Letters. Please upgrade or buy more.",
-          { code: "INSUFFICIENT_LOVE_LETTERS" },
-        );
-      }
-
-      logger.info(
-        {
-          userId: likerId,
-          feature: "loveLetters",
-          remaining: updatedWallet.loveLettersRemaining,
-          addOnRemaining: updatedWallet.addOnLoveLettersRemaining,
-        },
-        "usage consumed",
+        likerExists.subscription,
+        "loveLetters",
       );
     }
 
-    await enforceSwipeLimit(likerId, likerExists.subscription);
+    const result = await db.transaction(async (tx) => {
+      await enforceSwipeLimit(likerId, likerExists.subscription, tx);
 
-    const like = await interactionRepo.createLike(
-      likerId,
-      likedId,
-      superLike,
-      isLoveLetter,
-    );
-    if (!like) throw new InternalServerError("Failed to create like.");
+      if (superLike) {
+        const updatedWallet = await premiumFeatureRepo.useSuperLike(
+          likerId,
+          tx,
+        );
 
-    const mutualLike = await interactionRepo.getExistingLike(likedId, likerId);
+        if (!updatedWallet) {
+          throw new PaymentRequiredError(
+            "You are out of Super Likes. Please upgrade or buy more.",
+            { code: "INSUFFICIENT_SUPERLIKES" },
+          );
+        }
 
-    if (mutualLike) {
+        logger.info(
+          {
+            userId: likerId,
+            feature: "superlikes",
+            remaining: updatedWallet.superlikesRemaining,
+            addOnRemaining: updatedWallet.addOnSuperlikesRemaining,
+          },
+          "usage consumed",
+        );
+      }
+
+      if (isLoveLetter) {
+        const updatedWallet = await premiumFeatureRepo.useLoveLetter(
+          likerId,
+          tx,
+        );
+
+        if (!updatedWallet) {
+          throw new PaymentRequiredError(
+            "You are out of Love Letters. Please upgrade or buy more.",
+            { code: "INSUFFICIENT_LOVE_LETTERS" },
+          );
+        }
+
+        logger.info(
+          {
+            userId: likerId,
+            feature: "loveLetters",
+            remaining: updatedWallet.loveLettersRemaining,
+            addOnRemaining: updatedWallet.addOnLoveLettersRemaining,
+          },
+          "usage consumed",
+        );
+      }
+
+      const like = await interactionRepo.createLike(
+        likerId,
+        likedId,
+        superLike,
+        isLoveLetter,
+        tx,
+      );
+
+      if (!like) {
+        throw new ConflictError("Like already exists.", {
+          code: "LIKE_ALREADY_EXISTS",
+        });
+      }
+
+      const mutualLike = await interactionRepo.getExistingLike(
+        likedId,
+        likerId,
+        tx,
+      );
+
+      if (!mutualLike) {
+        return { like };
+      }
+
       const encounter = await matchRepo.getRouletteEncounter(likerId, likedId);
 
       if (encounter?.endedAt) {
@@ -280,19 +364,17 @@ export const interactionService = {
         const mutualLikeIsAfter = mutualLike.likedAt! >= encounterEnd;
 
         if (!currentLikeIsAfter || !mutualLikeIsAfter) {
-          void sendLikeNotification(
-            likedExists,
-            likerExists.displayName || "Someone",
-            superLike,
-          );
-
           return { like };
         }
       }
 
-      const newMatch = await matchRepo.createMatch(likerId, likedId);
+      const newMatch = await matchRepo.createMatch(likerId, likedId, tx);
       if (!newMatch) throw new InternalServerError("Failed to create match.");
 
+      return { like, match: newMatch };
+    });
+
+    if (result.match) {
       void sendMatchNotification(
         likedExists,
         likerExists.displayName || "Someone",
@@ -305,7 +387,7 @@ export const interactionService = {
 
       logger.info({ likerId, likedId }, "It's a match!");
 
-      return { like, match: newMatch };
+      return result;
     }
 
     void sendLikeNotification(
@@ -314,7 +396,7 @@ export const interactionService = {
       superLike,
     );
 
-    return { like };
+    return result;
   },
 
   dislikeUser: async (dislikerId: string, dislikedId: string) => {
@@ -355,10 +437,23 @@ export const interactionService = {
       });
     }
 
-    await enforceSwipeLimit(dislikerId, dislikerExists.subscription);
+    const dislike = await db.transaction(async (tx) => {
+      await enforceSwipeLimit(dislikerId, dislikerExists.subscription, tx);
 
-    const dislike = await interactionRepo.createDislike(dislikerId, dislikedId);
-    if (!dislike) throw new InternalServerError("Failed to create dislike.");
+      const created = await interactionRepo.createDislike(
+        dislikerId,
+        dislikedId,
+        tx,
+      );
+
+      if (!created) {
+        throw new ConflictError("Dislike already exists.", {
+          code: "DISLIKE_ALREADY_EXISTS",
+        });
+      }
+
+      return created;
+    });
 
     return dislike;
   },

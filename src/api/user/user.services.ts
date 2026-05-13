@@ -179,6 +179,53 @@ const isUserEligible = (
   return true;
 };
 
+const normalizePreferenceValues = (values?: string[] | null) =>
+  new Set(
+    (values ?? [])
+      .map((value) => String(value).trim().toUpperCase())
+      .filter(Boolean),
+  );
+
+const matchesGenderPreferences = (
+  candidate: FilteredUser,
+  currentUser: { gender?: string | null },
+  currentPreference?: { lookingToDate?: string[] | null } | null,
+  requestedGenders?: string[],
+) => {
+  const candidateGender = candidate.gender?.toUpperCase();
+  const currentGender = currentUser.gender?.toUpperCase();
+  const currentLookingToDate = normalizePreferenceValues(
+    currentPreference?.lookingToDate,
+  );
+  const candidateLookingToDate = normalizePreferenceValues(
+    candidate.preferences?.lookingToDate,
+  );
+  const requestedGenderSet = normalizePreferenceValues(requestedGenders);
+
+  if (
+    requestedGenderSet.size > 0 &&
+    (!candidateGender || !requestedGenderSet.has(candidateGender))
+  ) {
+    return false;
+  }
+
+  if (
+    currentLookingToDate.size > 0 &&
+    (!candidateGender || !currentLookingToDate.has(candidateGender))
+  ) {
+    return false;
+  }
+
+  if (
+    candidateLookingToDate.size > 0 &&
+    (!currentGender || !candidateLookingToDate.has(currentGender))
+  ) {
+    return false;
+  }
+
+  return true;
+};
+
 /**
  * Visibility score (platform-driven)
  */
@@ -384,6 +431,8 @@ export const userService = {
     minPhotos?: number,
   ): Promise<FilteredUsersResult> => {
     const currentUser = await userRepo.getUserById(currentUserId);
+    const currentPreference =
+      await preferenceRepo.getPreferenceByUserId(currentUserId);
     const canUseAdvancedFilters = entitlementService.hasAdvancedFilters(
       currentUser?.subscriptionType,
     );
@@ -430,6 +479,17 @@ export const userService = {
     const processed: ProcessedUser[] = [];
 
     for (const user of rawUsers) {
+      if (
+        !matchesGenderPreferences(
+          user,
+          currentUser ?? {},
+          currentPreference,
+          effectiveFilters.gender,
+        )
+      ) {
+        continue;
+      }
+
       if (!isUserEligible(user, ageRange, effectiveMinPhotos)) continue;
 
       const lat = parseFloat(user.latitude!);

@@ -1,5 +1,6 @@
 import { profileViewsRepo } from "../../repo/profile-views.repo";
 import { userRepo } from "../../repo/user.repo";
+import { entitlementService } from "../../services/entitlements";
 import { logger } from "../../utils/logger";
 import { ably } from "../../utils/websocket";
 import { BadRequestError, NotFoundError } from "../../middleware/error";
@@ -45,11 +46,19 @@ export const profileViewsService = {
     offset: number,
     markAsSeen: boolean,
   ) => {
-    const userExists = await userRepo.checkUserExists(userId);
-    if (!userExists) {
+    const user = await userRepo.getUserById(userId);
+    if (!user) {
       throw new NotFoundError("User does not exist.", {
         code: "USER_NOT_FOUND",
       });
+    }
+
+    const entitlements = entitlementService.getEntitlementsForTier(
+      user.subscriptionType,
+    );
+
+    if (!entitlements.profileViews) {
+      return [];
     }
 
     const allViews = await profileViewsRepo.getProfileViewsByUserId(userId);

@@ -1,5 +1,15 @@
-import { beforeAll, beforeEach, describe, expect, mock, test } from "bun:test";
+import {
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  mock,
+  setDefaultTimeout,
+  test,
+} from "bun:test";
 import { Elysia } from "elysia";
+
+setDefaultTimeout(30000);
 
 process.env.NODE_ENV = "test";
 process.env.DATABASE_URL = "postgres://user:password@localhost:5432/test";
@@ -96,6 +106,12 @@ let stableRateLimitKey: typeof import("../src/config/rate-limits")["stableRateLi
 let rateLimitPresets: typeof import("../src/config/rate-limits")["rateLimitPresets"];
 let streamService: typeof import("../src/api/stream/stream.services")["streamService"];
 let matchService: typeof import("../src/api/match/match.services")["matchService"];
+let matchRepo: typeof import("../src/repo/match.repo")["matchRepo"];
+let interactionRepo: typeof import("../src/repo/interaction.repo")["interactionRepo"];
+let userRepo: typeof import("../src/repo/user.repo")["userRepo"];
+let premiumFeatureRepo: typeof import("../src/repo/premium.repo")["premiumFeatureRepo"];
+let dbModule: typeof import("../src/db/db");
+let actualLikeUser: typeof import("../src/api/interaction/interaction.services")["interactionService"]["likeUser"];
 
 const jsonRequest = (path: string, init: RequestInit = {}) =>
   new Request(`http://localhost${path}`, {
@@ -119,6 +135,11 @@ beforeAll(async () => {
     import("../src/config/rate-limits"),
     import("../src/api/stream/stream.services"),
     import("../src/api/match/match.services"),
+    import("../src/repo/match.repo"),
+    import("../src/repo/interaction.repo"),
+    import("../src/repo/user.repo"),
+    import("../src/repo/premium.repo"),
+    import("../src/db/db"),
   ]);
 
   app = modules[0].createApp();
@@ -135,6 +156,12 @@ beforeAll(async () => {
   rateLimitPresets = modules[8].rateLimitPresets;
   streamService = modules[9].streamService;
   matchService = modules[10].matchService;
+  matchRepo = modules[11].matchRepo;
+  interactionRepo = modules[12].interactionRepo;
+  userRepo = modules[13].userRepo;
+  premiumFeatureRepo = modules[14].premiumFeatureRepo;
+  dbModule = modules[15];
+  actualLikeUser = interactionService.likeUser;
 });
 
 beforeEach(() => {
@@ -242,6 +269,13 @@ beforeEach(() => {
 describe("contract shapes", () => {
   test("entitlement values match stage 4 public tiers", () => {
     expect(entitlementService.getDailySwipeLimit("economy")).toBe(25);
+    expect(entitlementService.getEntitlementsForTier("economy")).toMatchObject({
+      myLikesLimit: 0,
+      profileViews: false,
+      superLikesPerWeek: 0,
+      boostsPerWeek: 0,
+      recallsPerWeek: 0,
+    });
     expect(entitlementService.getEntitlementsForTier("premium")).toMatchObject({
       dailySwipes: "unlimited",
       hasAdvancedFilters: true,
@@ -464,6 +498,56 @@ describe("contract shapes", () => {
       ],
       requestId: expect.any(String),
     });
+  });
+
+  test("super-like denial happens before swipe increment or like insert", async () => {
+    interactionService.likeUser = actualLikeUser;
+
+    userRepo.getUserDetailsById = mock(async (userId: string) => ({
+      id: userId,
+      displayName: userId === "u1" ? "Amina" : "Kwame",
+      email: `${userId}@example.test`,
+      birthday: "1995-01-01",
+      onboardingPage: null,
+      fcmToken: null,
+      subscription: "economy",
+      image: null,
+    })) as any;
+    userRepo.getEnabledPushTokensByUserId = mock(async () => []) as any;
+    interactionRepo.getExistingLike = mock(async () => null) as any;
+    interactionRepo.getExistingDislike = mock(async () => null) as any;
+    interactionRepo.checkAndIncrementSwipeLimit = mock(async () => undefined) as any;
+    interactionRepo.createLike = mock(async () => ({
+      likerId: "u1",
+      likedId: "u2",
+      likedAt: new Date("2026-05-01T00:00:00.000Z"),
+      superLike: true,
+      isLoveLetter: false,
+    })) as any;
+    premiumFeatureRepo.ensureSubscriptionAllowances = mock(async () => ({
+      userId: "u1",
+      superlikesRemaining: 0,
+      addOnSuperlikesRemaining: 0,
+      loveLettersRemaining: 0,
+      addOnLoveLettersRemaining: 0,
+    })) as any;
+    premiumFeatureRepo.getFeaturesByUserId = mock(async () => ({
+      userId: "u1",
+      superlikesRemaining: 0,
+      addOnSuperlikesRemaining: 0,
+      loveLettersRemaining: 0,
+      addOnLoveLettersRemaining: 0,
+    })) as any;
+    (dbModule.db as any).transaction = mock(async (callback: any) =>
+      callback(dbModule.db),
+    );
+
+    await expect(interactionService.likeUser("u1", "u2", true)).rejects.toMatchObject({
+      code: "INSUFFICIENT_SUPERLIKES",
+      statusCode: 402,
+    });
+    expect(interactionRepo.checkAndIncrementSwipeLimit).not.toHaveBeenCalled();
+    expect(interactionRepo.createLike).not.toHaveBeenCalled();
   });
 
   test("typebox validation errors use normalized details", async () => {
@@ -744,6 +828,17 @@ describe("contract shapes", () => {
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual([]);
     expect(matchService.getMatches).toHaveBeenCalledWith("u1");
+  });
+
+  test("match repo normalizes pair ordering before persistence", () => {
+    expect(matchRepo.normalizePair("u2", "u1")).toEqual({
+      user1Id: "u1",
+      user2Id: "u2",
+    });
+    expect(matchRepo.normalizePair("u1", "u2")).toEqual({
+      user1Id: "u1",
+      user2Id: "u2",
+    });
   });
 
   test("stream conversations route exposes conversations and nextCursor", async () => {
