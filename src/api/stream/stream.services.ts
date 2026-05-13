@@ -33,7 +33,7 @@ type ConversationParticipant = {
   id: string;
   name: string | null;
   displayName: string | null;
-  images: UserConversationProfile["images"];
+  imageUrl: string | null;
 };
 
 const clampLimit = (limit?: number) => {
@@ -81,7 +81,7 @@ const buildParticipant = (
     id,
     name: getMemberName(member),
     displayName: dbProfile?.displayName ?? null,
-    images: dbProfile?.images ?? [],
+    imageUrl: dbProfile?.images[0]?.imageUrl ?? null,
   };
 };
 
