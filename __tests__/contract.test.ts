@@ -10,6 +10,12 @@ process.env.STREAM_API_SECRET = "stream_secret";
 process.env.UPSTASH_REDIS_REST_URL = "https://redis.example.test";
 process.env.UPSTASH_REDIS_REST_TOKEN = "redis_token";
 
+let streamWebhookValid = true;
+const verifyWebhookMock = mock((rawBody: string, signature: string) => {
+  return streamWebhookValid && rawBody.length > 0 && signature.length > 0;
+});
+const queryChannelsRequestMock = mock(async () => []);
+
 mock.module("elysia-clerk", () => ({
   clerkPlugin: () => new Elysia({ name: "mock.clerk" }),
   clerkClient: {
@@ -70,7 +76,8 @@ mock.module("@upstash/redis", () => ({
 mock.module("stream-chat", () => ({
   StreamChat: {
     getInstance: () => ({
-      verifyWebhook: mock(() => true),
+      verifyWebhook: verifyWebhookMock,
+      queryChannelsRequest: queryChannelsRequestMock,
     }),
   },
 }));
@@ -87,6 +94,8 @@ let rouletteService: typeof import("../src/api/roulette/roulette.services")["rou
 let entitlementService: typeof import("../src/services/entitlements")["entitlementService"];
 let stableRateLimitKey: typeof import("../src/config/rate-limits")["stableRateLimitKey"];
 let rateLimitPresets: typeof import("../src/config/rate-limits")["rateLimitPresets"];
+let streamService: typeof import("../src/api/stream/stream.services")["streamService"];
+let matchService: typeof import("../src/api/match/match.services")["matchService"];
 
 const jsonRequest = (path: string, init: RequestInit = {}) =>
   new Request(`http://localhost${path}`, {
@@ -108,6 +117,8 @@ beforeAll(async () => {
     import("../src/api/roulette/roulette.services"),
     import("../src/services/entitlements"),
     import("../src/config/rate-limits"),
+    import("../src/api/stream/stream.services"),
+    import("../src/api/match/match.services"),
   ]);
 
   app = modules[0].createApp();
@@ -122,9 +133,15 @@ beforeAll(async () => {
   entitlementService = modules[7].entitlementService;
   stableRateLimitKey = modules[8].stableRateLimitKey;
   rateLimitPresets = modules[8].rateLimitPresets;
+  streamService = modules[9].streamService;
+  matchService = modules[10].matchService;
 });
 
 beforeEach(() => {
+  streamWebhookValid = true;
+  verifyWebhookMock.mockClear();
+  queryChannelsRequestMock.mockClear();
+
   userService.getFilteredUsersList = mock(async () => ({
     users: [],
     nextCursor: null,
@@ -213,6 +230,13 @@ beforeEach(() => {
     exists: false,
     message: "No active session found",
   })) as any;
+
+  streamService.getConversations = mock(async () => ({
+    conversations: [],
+    nextCursor: null,
+  })) as any;
+
+  matchService.getMatches = mock(async () => []) as any;
 });
 
 describe("contract shapes", () => {
@@ -711,6 +735,134 @@ describe("contract shapes", () => {
       success: true,
       exists: false,
       message: "No active session found",
+    });
+  });
+
+  test("matches route remains mounted", async () => {
+    const response = await app.handle(jsonRequest("/api/v1/matches/u1"));
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual([]);
+    expect(matchService.getMatches).toHaveBeenCalledWith("u1");
+  });
+
+  test("stream conversations route exposes conversations and nextCursor", async () => {
+    streamService.getConversations = mock(async () => ({
+      conversations: [
+        {
+          cid: "messaging:u1-u2",
+          id: "u1-u2",
+          type: "messaging",
+          participant: {
+            id: "u2",
+            name: "Stream Name",
+            displayName: "DB Name",
+            images: [{ imageUrl: "https://cdn.test/u2.png", order: 1 }],
+          },
+          lastMessage: {
+            id: "msg-1",
+            text: "hello",
+            user: { id: "u2" },
+            custom: { mood: "bright" },
+          },
+        },
+      ],
+      nextCursor: "opaque-cursor",
+    })) as any;
+
+    const response = await app.handle(
+      jsonRequest("/api/v1/stream/conversations/u1?limit=1"),
+    );
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({
+      conversations: [
+        {
+          cid: "messaging:u1-u2",
+          id: "u1-u2",
+          type: "messaging",
+          participant: {
+            id: "u2",
+            name: "Stream Name",
+            displayName: "DB Name",
+            images: [{ imageUrl: "https://cdn.test/u2.png", order: 1 }],
+          },
+          lastMessage: {
+            id: "msg-1",
+            text: "hello",
+            user: { id: "u2" },
+            custom: { mood: "bright" },
+          },
+        },
+      ],
+      nextCursor: "opaque-cursor",
+    });
+    expect(streamService.getConversations).toHaveBeenCalledWith({
+      userId: "u1",
+      cursor: undefined,
+      limit: 1,
+    });
+  });
+
+  test("stream webhooks verify the raw body before parsing", async () => {
+    const messagePayload =
+      '{ "type": "message.new", "user": { "id": "u1", "name": "Amina" }, "message": { "text": "hi" }, "members": [] }';
+
+    const messageResponse = await app.handle(
+      new Request("http://localhost/api/v1/stream/new-message-webhook", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "x-signature": "sig-message",
+        },
+        body: messagePayload,
+      }),
+    );
+
+    expect(messageResponse.status).toBe(200);
+    expect(await messageResponse.json()).toEqual({ ok: true });
+    expect(verifyWebhookMock).toHaveBeenLastCalledWith(
+      messagePayload,
+      "sig-message",
+    );
+
+    const callPayload =
+      '{ "type": "call.ring", "call": { "id": "call-1", "type": "default", "members": [] }, "user": { "id": "u1", "name": "Amina" } }';
+
+    const callResponse = await app.handle(
+      new Request("http://localhost/api/v1/stream/call-ring-webhook", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "x-signature": "sig-call",
+        },
+        body: callPayload,
+      }),
+    );
+
+    expect(callResponse.status).toBe(200);
+    expect(await callResponse.json()).toEqual({ ok: true });
+    expect(verifyWebhookMock).toHaveBeenLastCalledWith(callPayload, "sig-call");
+  });
+
+  test("stream webhook invalid signatures return 401", async () => {
+    streamWebhookValid = false;
+
+    const response = await app.handle(
+      new Request("http://localhost/api/v1/stream/new-message-webhook", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "x-signature": "bad-signature",
+        },
+        body: '{"type":"message.new"}',
+      }),
+    );
+
+    expect(response.status).toBe(401);
+    expect(await response.json()).toMatchObject({
+      status: "fail",
+      code: "INVALID_STREAM_SIGNATURE",
     });
   });
 });

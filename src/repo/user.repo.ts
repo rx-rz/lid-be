@@ -1,5 +1,6 @@
 import {
   and,
+  asc,
   desc,
   eq,
   gte,
@@ -61,6 +62,13 @@ type UserQueryResult = {
   hasLikedLoggedInUser: boolean;
   superLike: boolean;
   likedAt: Date | null;
+};
+
+export type UserConversationProfile = Pick<
+  SelectUser,
+  "id" | "displayName"
+> & {
+  images: SelectImage[];
 };
 
 export const userRepo = {
@@ -209,6 +217,46 @@ export const userRepo = {
           eq(userPushTokensTable.enabled, true),
         ),
       );
+  },
+
+  getConversationProfilesByIds: async (
+    userIds: string[],
+    db?: DrizzleDB,
+  ): Promise<Record<string, UserConversationProfile>> => {
+    const dbInstance = withDb(db);
+    const uniqueUserIds = [...new Set(userIds)].filter(Boolean);
+
+    if (uniqueUserIds.length === 0) return {};
+
+    const [users, images] = await Promise.all([
+      dbInstance
+        .select({
+          id: usersTable.id,
+          displayName: usersTable.displayName,
+        })
+        .from(usersTable)
+        .where(inArray(usersTable.id, uniqueUserIds)),
+      dbInstance
+        .select()
+        .from(imagesTable)
+        .where(inArray(imagesTable.userId, uniqueUserIds))
+        .orderBy(asc(imagesTable.order)),
+    ]);
+
+    const profiles = users.reduce(
+      (acc, user) => {
+        acc[user.id] = { ...user, images: [] };
+        return acc;
+      },
+      {} as Record<string, UserConversationProfile>,
+    );
+
+    for (const image of images) {
+      if (!profiles[image.userId]) continue;
+      profiles[image.userId].images.push(image);
+    }
+
+    return profiles;
   },
 
   findUsersWithFilters: async (

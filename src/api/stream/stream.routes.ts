@@ -8,7 +8,11 @@ import { logger } from "../../utils/logger";
 import { userRepo } from "../../repo/user.repo";
 import { entitlementService, resolveTier } from "../../services/entitlements";
 import { premiumFeatureRepo } from "../../repo/premium.repo";
-import { PaymentRequiredError, UnauthorizedError } from "../../middleware/error";
+import {
+  BadRequestError,
+  PaymentRequiredError,
+  UnauthorizedError,
+} from "../../middleware/error";
 
 const expo = new Expo();
 
@@ -122,6 +126,34 @@ const sendPushToUser = async (
   ]);
 };
 
+const parseVerifiedStreamWebhookBody = async (request: Request) => {
+  const signature = request.headers.get("x-signature");
+
+  if (!signature) {
+    throw new UnauthorizedError("Missing Stream signature.", {
+      code: "MISSING_STREAM_SIGNATURE",
+    });
+  }
+
+  const rawBody = await request.text();
+  const isValid = streamClient.verifyWebhook(rawBody, signature);
+
+  if (!isValid) {
+    throw new UnauthorizedError("Invalid signature.", {
+      code: "INVALID_STREAM_SIGNATURE",
+    });
+  }
+
+  try {
+    return JSON.parse(rawBody);
+  } catch (error) {
+    throw new BadRequestError("Invalid Stream webhook payload.", {
+      code: "INVALID_STREAM_WEBHOOK_PAYLOAD",
+      cause: error,
+    });
+  }
+};
+
 export const streamRoutes = new Elysia({ prefix: "/stream" })
   .post("/token", ({ body }) => streamService.generateToken(body), {
     body: t.Object({
@@ -132,6 +164,25 @@ export const streamRoutes = new Elysia({ prefix: "/stream" })
     }),
     detail: { tags: ["Chat"], summary: "Get Stream.io token" },
   })
+
+  .get(
+    "/conversations/:userId",
+    async ({ params: { userId }, query }) => {
+      return streamService.getConversations({
+        userId,
+        cursor: query.cursor,
+        limit: query.limit === undefined ? undefined : Number(query.limit),
+      });
+    },
+    {
+      params: t.Object({ userId: t.String() }),
+      query: t.Object({
+        cursor: t.Optional(t.String()),
+        limit: t.Optional(t.Numeric()),
+      }),
+      detail: { tags: ["Chat"], summary: "Get Stream conversations" },
+    },
+  )
 
   .post(
     "/call",
@@ -193,17 +244,8 @@ export const streamRoutes = new Elysia({ prefix: "/stream" })
 
   .post(
     "/call-ring-webhook",
-    async ({ body, headers }: { body: any; headers: any }) => {
-      const isValid = streamClient.verifyWebhook(
-        JSON.stringify(body),
-        headers["x-signature"],
-      );
-
-      if (!isValid) {
-        throw new UnauthorizedError("Invalid signature.", {
-          code: "INVALID_STREAM_SIGNATURE",
-        });
-      }
+    async ({ request }: { request: Request }) => {
+      const body = await parseVerifiedStreamWebhookBody(request);
 
       if (body.type !== "call.ring") {
         return { ok: true };
@@ -248,21 +290,15 @@ export const streamRoutes = new Elysia({ prefix: "/stream" })
 
       return { ok: true };
     },
+    {
+      parse: "none",
+    },
   )
 
   .post(
     "/new-message-webhook",
-    async ({ body, headers }: { body: any; headers: any }) => {
-      const isValid = streamClient.verifyWebhook(
-        JSON.stringify(body),
-        headers["x-signature"],
-      );
-
-      if (!isValid) {
-        throw new UnauthorizedError("Invalid signature.", {
-          code: "INVALID_STREAM_SIGNATURE",
-        });
-      }
+    async ({ request }: { request: Request }) => {
+      const body = await parseVerifiedStreamWebhookBody(request);
 
       if (body.type !== "message.new") {
         return { ok: true };
@@ -299,6 +335,9 @@ export const streamRoutes = new Elysia({ prefix: "/stream" })
       );
 
       return { ok: true };
+    },
+    {
+      parse: "none",
     },
   );
 

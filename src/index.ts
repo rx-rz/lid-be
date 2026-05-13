@@ -18,6 +18,7 @@ import { errorMiddleware } from "./middleware/error";
 import { requestLoggerMiddleware } from "./middleware/request-logger";
 import { paymentRoutes } from "./api/payment/payment.routes";
 import { interactionRoutes } from "./api/interaction/interaction.routes";
+import { matchRoutes } from "./api/match/match.routes";
 import { loggers } from "./utils/logger";
 import swaggerJson from "./lid-api.json";
 import { locationRoutes } from "./api/location/location.routes";
@@ -49,6 +50,7 @@ export const createApp = () =>
     .use(imagesRoutes)
     .use(locationRoutes)
     .use(interactionRoutes)
+    .use(matchRoutes)
     .use(blockRoutes)
     .use(boostRoutes)
     .use(favoriteRoutes)
