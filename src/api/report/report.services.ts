@@ -3,6 +3,7 @@ import { userRepo } from "../../repo/user.repo";
 import { BadRequestError, NotFoundError } from "../../middleware/error";
 
 export const reportService = {
+  
   create: async (data: {
     reporterId: string;
     reportedId: string;
@@ -21,7 +22,6 @@ export const reportService = {
         code: "REPORTED_USER_NOT_FOUND",
       });
     }
-
     return await reportRepo.create(data);
   },
 

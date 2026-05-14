@@ -1,14 +1,14 @@
 import { Elysia, t } from "elysia";
 import { profileViewsService } from "./profile-views.services";
-import { clerkPlugin } from "elysia-clerk";
+import { authMiddleware } from "../../middleware/auth";
 
 export const profileViewsRoutes = new Elysia({ prefix: "/profile-views" })
-  .use(clerkPlugin())
+  .use(authMiddleware)
   .post(
     "/",
-    async ({ body, set }) => {
+    async ({ body, currentUserId, set }) => {
       const view = await profileViewsService.recordView(
-        body.viewerId,
+        currentUserId,
         body.viewedId,
       );
       set.status = 201;
@@ -29,13 +29,13 @@ export const profileViewsRoutes = new Elysia({ prefix: "/profile-views" })
   )
   .get(
     "/:userId",
-    async ({ params: { userId }, query }) => {
+    async ({ currentUserId, query }) => {
       const limit = query.limit ? Number(query.limit) : 20;
       const offset = query.offset ? Number(query.offset) : 0;
       const markAsSeen = query.markAsSeen === "true";
 
       const views = await profileViewsService.getViews(
-        userId,
+        currentUserId,
         limit,
         offset,
         markAsSeen,

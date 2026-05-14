@@ -21,13 +21,24 @@ process.env.UPSTASH_REDIS_REST_URL = "https://redis.example.test";
 process.env.UPSTASH_REDIS_REST_TOKEN = "redis_token";
 
 let streamWebhookValid = true;
+let clerkAuthUserId: string | null = "u1";
 const verifyWebhookMock = mock((rawBody: string, signature: string) => {
   return streamWebhookValid && rawBody.length > 0 && signature.length > 0;
 });
 const queryChannelsRequestMock = mock(async () => []);
 
 mock.module("elysia-clerk", () => ({
-  clerkPlugin: () => new Elysia({ name: "mock.clerk" }),
+  clerkPlugin: () =>
+    new Elysia({ name: "mock.clerk" })
+      .decorate("clerk", {
+        users: {
+          getUser: mock(async (userId: string) => ({ id: userId })),
+        },
+      })
+      .resolve(() => ({
+        auth: () => ({ userId: clerkAuthUserId }),
+      }))
+      .as("scoped"),
   clerkClient: {
     users: {
       deleteUser: mock(async () => undefined),
@@ -100,6 +111,13 @@ let interactionService: typeof import("../src/api/interaction/interaction.servic
 let paymentService: typeof import("../src/api/payment/payment.services")["paymentService"];
 let preferenceService: typeof import("../src/api/preference/preference.services")["preferenceService"];
 let premiumService: typeof import("../src/api/premium/premium.services")["premiumService"];
+let profileService: typeof import("../src/api/profile/profile.services")["profileService"];
+let profileViewsService: typeof import("../src/api/profile/profile-views.services")["profileViewsService"];
+let imageService: typeof import("../src/api/image/image.services")["imageService"];
+let favoriteService: typeof import("../src/api/favorite/favorite.services")["favoriteService"];
+let blockService: typeof import("../src/api/block/block.services")["blockService"];
+let reportService: typeof import("../src/api/report/report.services")["reportService"];
+let locationService: typeof import("../src/api/location/location.services")["locationService"];
 let rouletteService: typeof import("../src/api/roulette/roulette.services")["rouletteService"];
 let entitlementService: typeof import("../src/services/entitlements")["entitlementService"];
 let stableRateLimitKey: typeof import("../src/config/rate-limits")["stableRateLimitKey"];
@@ -130,6 +148,13 @@ beforeAll(async () => {
     import("../src/api/payment/payment.services"),
     import("../src/api/preference/preference.services"),
     import("../src/api/premium/premium.services"),
+    import("../src/api/profile/profile.services"),
+    import("../src/api/profile/profile-views.services"),
+    import("../src/api/image/image.services"),
+    import("../src/api/favorite/favorite.services"),
+    import("../src/api/block/block.services"),
+    import("../src/api/report/report.services"),
+    import("../src/api/location/location.services"),
     import("../src/api/roulette/roulette.services"),
     import("../src/services/entitlements"),
     import("../src/config/rate-limits"),
@@ -150,22 +175,30 @@ beforeAll(async () => {
   paymentService = modules[3].paymentService;
   preferenceService = modules[4].preferenceService;
   premiumService = modules[5].premiumService;
-  rouletteService = modules[6].rouletteService;
-  entitlementService = modules[7].entitlementService;
-  stableRateLimitKey = modules[8].stableRateLimitKey;
-  rateLimitPresets = modules[8].rateLimitPresets;
-  streamService = modules[9].streamService;
-  matchService = modules[10].matchService;
-  matchRepo = modules[11].matchRepo;
-  interactionRepo = modules[12].interactionRepo;
-  userRepo = modules[13].userRepo;
-  premiumFeatureRepo = modules[14].premiumFeatureRepo;
-  dbModule = modules[15];
+  profileService = modules[6].profileService;
+  profileViewsService = modules[7].profileViewsService;
+  imageService = modules[8].imageService;
+  favoriteService = modules[9].favoriteService;
+  blockService = modules[10].blockService;
+  reportService = modules[11].reportService;
+  locationService = modules[12].locationService;
+  rouletteService = modules[13].rouletteService;
+  entitlementService = modules[14].entitlementService;
+  stableRateLimitKey = modules[15].stableRateLimitKey;
+  rateLimitPresets = modules[15].rateLimitPresets;
+  streamService = modules[16].streamService;
+  matchService = modules[17].matchService;
+  matchRepo = modules[18].matchRepo;
+  interactionRepo = modules[19].interactionRepo;
+  userRepo = modules[20].userRepo;
+  premiumFeatureRepo = modules[21].premiumFeatureRepo;
+  dbModule = modules[22];
   actualLikeUser = interactionService.likeUser;
 });
 
 beforeEach(() => {
   streamWebhookValid = true;
+  clerkAuthUserId = "u1";
   verifyWebhookMock.mockClear();
   queryChannelsRequestMock.mockClear();
 
@@ -176,6 +209,7 @@ beforeEach(() => {
 
   interactionService.likeUser = mock(async () => ({
     like: { likerId: "u1", likedId: "u2", superLike: false },
+    matched: false,
   })) as any;
   interactionService.dislikeUser = mock(async () => ({
     dislikerId: "u1",
@@ -242,6 +276,69 @@ beforeEach(() => {
     interests: [],
   })) as any;
 
+  profileService.createProfile = mock(async (userId: string, bio: string, interests: string[]) => ({
+    userId,
+    bio,
+    interests,
+  })) as any;
+  profileService.getProfile = mock(async (userId: string) => ({
+    userId,
+    bio: "hello",
+    interests: [],
+  })) as any;
+  profileService.updateProfile = mock(async (userId: string, bio?: string, interests?: string[]) => ({
+    userId,
+    bio,
+    interests,
+  })) as any;
+  profileService.deleteProfile = mock(async (userId: string) => ({
+    userId,
+  })) as any;
+
+  profileViewsService.recordView = mock(async (viewerId: string, viewedId: string) => ({
+    viewerId,
+    viewedId,
+  })) as any;
+  profileViewsService.getViews = mock(async (userId: string) => [
+    { viewedId: userId, viewer: { id: "viewer" } },
+  ]) as any;
+
+  imageService.processAndSyncImages = mock(async (userId: string, images: any[]) =>
+    images.map((image) => ({ ...image, userId })),
+  ) as any;
+  imageService.generateUploadSignature = mock(() => ({
+    cloudName: "cloud",
+    apiKey: "key",
+    timestamp: 1,
+    signature: "sig",
+    folder: "user_uploads",
+    upload_preset: "diaspora",
+  })) as any;
+
+  favoriteService.add = mock(async (userId: string, favoriteUserId: string) => ({
+    userId,
+    favoriteUserId,
+  })) as any;
+  favoriteService.get = mock(async (userId: string) => [{ userId }]) as any;
+  favoriteService.remove = mock(async (userId: string, favoriteUserId: string) => ({
+    success: true,
+    userId,
+    favoriteUserId,
+  })) as any;
+
+  blockService.blockUser = mock(async (blockerId: string, blockedId: string) => ({
+    blockerId,
+    blockedId,
+  })) as any;
+  blockService.getBlockedIds = mock(async () => []) as any;
+
+  reportService.create = mock(async (data: any) => data) as any;
+  locationService.createLocation = mock(async (userId: string, latitude: string, longitude: string) => ({
+    userId,
+    latitude,
+    longitude,
+  })) as any;
+
   premiumService.boostUser = mock(async (userId: string) => ({
     userId,
     visibilityBoost: true,
@@ -257,7 +354,26 @@ beforeEach(() => {
     exists: false,
     message: "No active session found",
   })) as any;
+  rouletteService.endSession = mock(async (matchId?: string, userId?: string) => ({
+    success: true,
+    matchId,
+    userId,
+  })) as any;
+  rouletteService.getStatus = mock(async (userId: string) => ({
+    success: true,
+    userId,
+  })) as any;
+  rouletteService.cancelSearch = mock(async (userId: string) => ({
+    success: true,
+    userId,
+  })) as any;
+  rouletteService.getHistory = mock(async (userId: string) => [{ userId }]) as any;
 
+  streamService.generateToken = mock(async (data: any) => ({
+    token: "stream-token",
+    userId: data.userId,
+    apiKey: "stream_key",
+  })) as any;
   streamService.getConversations = mock(async () => ({
     conversations: [],
     nextCursor: null,
@@ -424,6 +540,261 @@ describe("contract shapes", () => {
     expect(rateLimitPresets.public.prefix).toBe("rl:public:");
   });
 
+  test("authenticated routes ignore spoofed actor ids", async () => {
+    clerkAuthUserId = "auth_user";
+
+    await app.handle(
+      jsonRequest("/api/v1/stream/token", {
+        method: "POST",
+        body: JSON.stringify({ userId: "spoof_user", name: "Spoof" }),
+      }),
+    );
+    expect(streamService.generateToken).toHaveBeenLastCalledWith({
+      userId: "auth_user",
+      name: "Spoof",
+    });
+
+    await app.handle(jsonRequest("/api/v1/stream/conversations/spoof_user"));
+    expect(streamService.getConversations).toHaveBeenLastCalledWith({
+      userId: "auth_user",
+      cursor: undefined,
+      limit: undefined,
+    });
+
+    userRepo.getUserById = mock(async () => ({
+      id: "auth_user",
+      subscriptionType: "premium",
+    })) as any;
+    premiumFeatureRepo.ensureSubscriptionAllowances = mock(async () => ({
+      userId: "auth_user",
+    })) as any;
+    premiumFeatureRepo.consumeFeature = mock(async (userId: string, feature: string) => ({
+      source: "subscription",
+      features: { userId, videoCallsRemaining: 7 },
+    })) as any;
+    await app.handle(
+      jsonRequest("/api/v1/stream/call", {
+        method: "POST",
+        body: JSON.stringify({
+          callId: "call_123",
+          type: "default",
+          userId: "spoof_user",
+        }),
+      }),
+    );
+    expect(premiumFeatureRepo.consumeFeature).toHaveBeenLastCalledWith(
+      "auth_user",
+      "videoCalls",
+      { unlimited: false },
+    );
+
+    await app.handle(
+      jsonRequest("/api/v1/subscription", {
+        method: "POST",
+        body: JSON.stringify({ userId: "spoof_user", priceId: "price_123" }),
+      }),
+    );
+    expect(paymentService.createPaymentIntent).toHaveBeenLastCalledWith(
+      "auth_user",
+      "price_123",
+    );
+
+    await app.handle(jsonRequest("/api/v1/status/spoof_user"));
+    expect(paymentService.getPaymentStatus).toHaveBeenLastCalledWith(
+      "auth_user",
+    );
+
+    await app.handle(
+      jsonRequest("/api/v1/addons/checkout", {
+        method: "POST",
+        body: JSON.stringify({ userId: "spoof_user", packId: "recall_5" }),
+      }),
+    );
+    expect(paymentService.createAddonCheckout).toHaveBeenLastCalledWith(
+      "auth_user",
+      "recall_5",
+      undefined,
+      undefined,
+    );
+
+    await app.handle(
+      jsonRequest("/api/v1/likes", {
+        method: "POST",
+        body: JSON.stringify({ likerId: "spoof_user", likedId: "target" }),
+      }),
+    );
+    expect(interactionService.likeUser).toHaveBeenLastCalledWith(
+      "auth_user",
+      "target",
+      undefined,
+      undefined,
+    );
+
+    await app.handle(
+      jsonRequest("/api/v1/dislikes", {
+        method: "POST",
+        body: JSON.stringify({ dislikerId: "spoof_user", dislikedId: "target" }),
+      }),
+    );
+    expect(interactionService.dislikeUser).toHaveBeenLastCalledWith(
+      "auth_user",
+      "target",
+    );
+
+    await app.handle(jsonRequest("/api/v1/users?userId=spoof_user&radius=[0,100]&age=[18,40]"));
+    expect(userService.getFilteredUsersList).toHaveBeenLastCalledWith(
+      "auth_user",
+      expect.any(Object),
+      [0, 100],
+      [18, 40],
+      undefined,
+    );
+
+    await app.handle(jsonRequest("/api/v1/boost/spoof_user", { method: "POST" }));
+    expect(premiumService.boostUser).toHaveBeenLastCalledWith("auth_user");
+
+    await app.handle(jsonRequest("/api/v1/matches/spoof_user"));
+    expect(matchService.getMatches).toHaveBeenLastCalledWith("auth_user");
+  });
+
+  test("adjacent user-owned routes ignore spoofed actor ids", async () => {
+    clerkAuthUserId = "auth_user";
+
+    await app.handle(
+      jsonRequest("/api/v1/preference", {
+        method: "POST",
+        body: JSON.stringify({ userId: "spoof_user", interests: ["music"] }),
+      }),
+    );
+    expect(preferenceService.create).toHaveBeenLastCalledWith("auth_user", {
+      interests: ["music"],
+    });
+
+    await app.handle(
+      jsonRequest("/api/v1/profile/spoof_user", {
+        method: "PUT",
+        body: JSON.stringify({ bio: "updated" }),
+      }),
+    );
+    expect(profileService.updateProfile).toHaveBeenLastCalledWith(
+      "auth_user",
+      "updated",
+      undefined,
+    );
+
+    await app.handle(
+      jsonRequest("/api/v1/images", {
+        method: "POST",
+        body: JSON.stringify({
+          userId: "spoof_user",
+          images: [{ imageUrl: "https://cdn.test/1.jpg", order: 1 }],
+        }),
+      }),
+    );
+    expect(imageService.processAndSyncImages).toHaveBeenLastCalledWith(
+      "auth_user",
+      [{ imageUrl: "https://cdn.test/1.jpg", order: 1 }],
+    );
+
+    await app.handle(
+      jsonRequest("/api/v1/profile-views", {
+        method: "POST",
+        body: JSON.stringify({ viewerId: "spoof_user", viewedId: "target" }),
+      }),
+    );
+    expect(profileViewsService.recordView).toHaveBeenLastCalledWith(
+      "auth_user",
+      "target",
+    );
+
+    await app.handle(
+      jsonRequest("/api/v1/favorites", {
+        method: "POST",
+        body: JSON.stringify({ userId: "spoof_user", favoriteUserId: "target" }),
+      }),
+    );
+    expect(favoriteService.add).toHaveBeenLastCalledWith("auth_user", "target");
+
+    await app.handle(
+      jsonRequest("/api/v1/block", {
+        method: "POST",
+        body: JSON.stringify({ blockerId: "spoof_user", blockedId: "target" }),
+      }),
+    );
+    expect(blockService.blockUser).toHaveBeenLastCalledWith(
+      "auth_user",
+      "target",
+    );
+
+    await app.handle(
+      jsonRequest("/api/v1/report", {
+        method: "POST",
+        body: JSON.stringify({
+          reporterId: "spoof_user",
+          reportedId: "target",
+          reason: "abuse",
+        }),
+      }),
+    );
+    expect(reportService.create).toHaveBeenLastCalledWith({
+      reporterId: "auth_user",
+      reportedId: "target",
+      reason: "abuse",
+    });
+
+    await app.handle(
+      jsonRequest("/api/v1/location", {
+        method: "POST",
+        body: JSON.stringify({
+          userId: "spoof_user",
+          latitude: "6.45",
+          longitude: "3.39",
+        }),
+      }),
+    );
+    expect(locationService.createLocation).toHaveBeenLastCalledWith(
+      "auth_user",
+      "6.45",
+      "3.39",
+    );
+
+    await app.handle(
+      jsonRequest("/api/v1/roulette/start", {
+        method: "POST",
+        body: JSON.stringify({ userId: "spoof_user" }),
+      }),
+    );
+    expect(rouletteService.findMatch).toHaveBeenLastCalledWith("auth_user");
+  });
+
+  test("user-owned routes require Clerk auth while public webhooks stay unauthenticated", async () => {
+    clerkAuthUserId = null;
+
+    const protectedResponse = await app.handle(
+      jsonRequest("/api/v1/likes", {
+        method: "POST",
+        body: JSON.stringify({ likerId: "u1", likedId: "u2" }),
+      }),
+    );
+    expect(protectedResponse.status).toBe(401);
+    expect(await protectedResponse.json()).toMatchObject({
+      status: "fail",
+      code: "AUTHENTICATION_REQUIRED",
+    });
+
+    const webhookResponse = await app.handle(
+      new Request("http://localhost/api/v1/stream/new-message-webhook", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "x-signature": "sig-message",
+        },
+        body: '{"type":"message.new","members":[]}',
+      }),
+    );
+    expect(webhookResponse.status).toBe(200);
+  });
+
   test("likes and dislikes keep current success shapes", async () => {
     const likeResponse = await app.handle(
       jsonRequest("/api/v1/likes", {
@@ -434,6 +805,7 @@ describe("contract shapes", () => {
     expect(likeResponse.status).toBe(201);
     expect(await likeResponse.json()).toEqual({
       like: { likerId: "u1", likedId: "u2", superLike: false },
+      matched: false,
     });
     expect(interactionService.likeUser).toHaveBeenLastCalledWith(
       "u1",
@@ -497,6 +869,84 @@ describe("contract shapes", () => {
         },
       ],
       requestId: expect.any(String),
+    });
+  });
+
+  test("like route exposes explicit mutual match result", async () => {
+    interactionService.likeUser = mock(async () => ({
+      like: { likerId: "u1", likedId: "u2", superLike: false },
+      matched: true,
+      match: { id: "match_1", user1Id: "u1", user2Id: "u2" },
+      matchedUser: {
+        id: "u2",
+        displayName: "Kwame",
+        name: "Kwame",
+        image: "https://cdn.test/u2.png",
+      },
+    })) as any;
+
+    const response = await app.handle(
+      jsonRequest("/api/v1/likes", {
+        method: "POST",
+        body: JSON.stringify({ likerId: "u1", likedId: "u2" }),
+      }),
+    );
+
+    expect(response.status).toBe(201);
+    expect(await response.json()).toEqual({
+      like: { likerId: "u1", likedId: "u2", superLike: false },
+      matched: true,
+      match: { id: "match_1", user1Id: "u1", user2Id: "u2" },
+      matchedUser: {
+        id: "u2",
+        displayName: "Kwame",
+        name: "Kwame",
+        image: "https://cdn.test/u2.png",
+      },
+    });
+  });
+
+  test("paid feature denial includes feature metadata", async () => {
+    interactionService.likeUser = mock(async () => {
+      const { PaymentRequiredError } = await import("../src/middleware/error");
+      throw new PaymentRequiredError(
+        "You are out of Super Likes. Please upgrade or buy more.",
+        {
+          code: "INSUFFICIENT_SUPERLIKES",
+          details: [
+            {
+              message: "Super Like allowance has been exhausted.",
+              feature: "superlikes",
+              reason: "allowance_exhausted",
+              requiredPlan: "premium",
+            },
+          ],
+        },
+      );
+    }) as any;
+
+    const response = await app.handle(
+      jsonRequest("/api/v1/likes", {
+        method: "POST",
+        body: JSON.stringify({
+          likerId: "u1",
+          likedId: "u2",
+          superLike: true,
+        }),
+      }),
+    );
+
+    expect(response.status).toBe(402);
+    expect(await response.json()).toMatchObject({
+      status: "fail",
+      code: "INSUFFICIENT_SUPERLIKES",
+      details: [
+        {
+          feature: "superlikes",
+          reason: "allowance_exhausted",
+          requiredPlan: "premium",
+        },
+      ],
     });
   });
 

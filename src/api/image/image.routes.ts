@@ -1,9 +1,9 @@
 import { Elysia, t } from "elysia";
 import { imageService } from "./image.services";
-import { clerkPlugin } from "elysia-clerk";
+import { authMiddleware } from "../../middleware/auth";
 
 export const imagesRoutes = new Elysia({ prefix: "/image" })
-  .use(clerkPlugin())
+  .use(authMiddleware)
   .get(
     "/upload-url",
     async () => {
@@ -14,13 +14,13 @@ export const imagesRoutes = new Elysia({ prefix: "/image" })
     },
   );
 export const imageRoutes = new Elysia({ prefix: "/images" })
-  .use(clerkPlugin())
+  .use(authMiddleware)
 
   .post(
     "",
-    async ({ body, set }) => {
+    async ({ body, currentUserId, set }) => {
       const processedImages = await imageService.processAndSyncImages(
-        body.userId,
+        currentUserId,
         body.images,
       );
       set.status = 201;

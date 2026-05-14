@@ -1,15 +1,15 @@
 import { Elysia, t } from "elysia";
 import { rouletteService } from "./roulette.services";
-import { clerkPlugin } from "elysia-clerk";
 import { loggers } from "../../utils/logger";
+import { authMiddleware } from "../../middleware/auth";
 
 export const rouletteRoutes = new Elysia({ prefix: "/roulette" })
-  .use(clerkPlugin())
+  .use(authMiddleware)
   .post(
     "/start",
-    async ({ body, set }) => {
+    async ({ currentUserId, set }) => {
       try {
-        const result = await rouletteService.findMatch(body.userId);
+        const result = await rouletteService.findMatch(currentUserId);
 
         if ("alreadyMatched" in result || "alreadyWaiting" in result) {
           set.status = 409;
@@ -39,11 +39,11 @@ export const rouletteRoutes = new Elysia({ prefix: "/roulette" })
   )
   .get(
     "/details/:userId",
-    async ({ params: { userId }, set }) => {
+    async ({ currentUserId, set }) => {
       try {
-        return await rouletteService.getDetails(userId);
+        return await rouletteService.getDetails(currentUserId);
       } catch (error) {
-        loggers.roulette.error({ err: error, userId }, "failed to get roulette details");
+        loggers.roulette.error({ err: error, userId: currentUserId }, "failed to get roulette details");
         set.status = 500;
         return {
           success: false,
@@ -62,8 +62,8 @@ export const rouletteRoutes = new Elysia({ prefix: "/roulette" })
   )
   .post(
     "/end",
-    async ({ body, set }) => {
-      if (!body.matchId && !body.userId) {
+    async ({ body, currentUserId, set }) => {
+      if (!body.matchId && !currentUserId) {
         set.status = 400;
         return {
           success: false,
@@ -74,7 +74,7 @@ export const rouletteRoutes = new Elysia({ prefix: "/roulette" })
       try {
         const result = await rouletteService.endSession(
           body.matchId,
-          body.userId,
+          currentUserId,
         );
 
         if (!result.success && result.error === "no_active_match") {
@@ -102,11 +102,11 @@ export const rouletteRoutes = new Elysia({ prefix: "/roulette" })
   )
   .get(
     "/status/:userId",
-    async ({ params: { userId }, set }) => {
+    async ({ currentUserId, set }) => {
       try {
-        return await rouletteService.getStatus(userId);
+        return await rouletteService.getStatus(currentUserId);
       } catch (error) {
-        loggers.roulette.error({ err: error, userId }, "failed to get roulette status");
+        loggers.roulette.error({ err: error, userId: currentUserId }, "failed to get roulette status");
         set.status = 500;
         return {
           success: false,
@@ -125,9 +125,9 @@ export const rouletteRoutes = new Elysia({ prefix: "/roulette" })
   )
   .post(
     "/cancel",
-    async ({ body, set }) => {
+    async ({ currentUserId, set }) => {
       try {
-        return await rouletteService.cancelSearch(body.userId);
+        return await rouletteService.cancelSearch(currentUserId);
       } catch (error) {
         loggers.roulette.error({ err: error }, "failed to cancel roulette");
         set.status = 500;
@@ -148,12 +148,12 @@ export const rouletteRoutes = new Elysia({ prefix: "/roulette" })
   )
   .get(
     "/history/:userId",
-    async ({ params: { userId }, query, set }) => {
+    async ({ currentUserId, query, set }) => {
       try {
         const limit = query.limit ? parseInt(query.limit, 10) : 20;
-        return await rouletteService.getHistory(userId, limit);
+        return await rouletteService.getHistory(currentUserId, limit);
       } catch (error) {
-        loggers.roulette.error({ err: error, userId }, "failed to get roulette history");
+        loggers.roulette.error({ err: error, userId: currentUserId }, "failed to get roulette history");
         set.status = 500;
         return {
           success: false,

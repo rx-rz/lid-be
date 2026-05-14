@@ -5,6 +5,7 @@ import {
   routeRateLimit,
 } from "../../config/rate-limits";
 import { ErrorResponseSchema } from "../../middleware/error";
+import { authMiddleware } from "../../middleware/auth";
 
 const InteractionUserSchema = t.Nullable(
   t.Object({
@@ -28,12 +29,13 @@ const LikesListSchema = t.Array(
 );
 
 export const interactionRoutes = new Elysia({ name: "routes.interaction" })
+  .use(authMiddleware)
   .use(routeRateLimit(rateLimitPresets.interactions))
   .post(
     "/likes",
-    async ({ body, set }) => {
+    async ({ body, currentUserId, set }) => {
       const result = await interactionService.likeUser(
-        body.likerId,
+        currentUserId,
         body.likedId,
         body.superLike,
         body.isLoveLetter,
@@ -61,8 +63,8 @@ export const interactionRoutes = new Elysia({ name: "routes.interaction" })
   )
   .get(
     "/likes/:userId",
-    async ({ params: { userId } }) => {
-      const likedUsers = await interactionService.getLikedUsers(userId);
+    async ({ currentUserId }) => {
+      const likedUsers = await interactionService.getLikedUsers(currentUserId);
       return likedUsers as any;
     },
     {
@@ -79,8 +81,9 @@ export const interactionRoutes = new Elysia({ name: "routes.interaction" })
   )
   .get(
     "/likes/received/:userId",
-    async ({ params: { userId } }) => {
-      const receivedLikes = await interactionService.getReceivedLikes(userId);
+    async ({ currentUserId }) => {
+      const receivedLikes =
+        await interactionService.getReceivedLikes(currentUserId);
       return receivedLikes as any;
     },
     {
@@ -98,9 +101,9 @@ export const interactionRoutes = new Elysia({ name: "routes.interaction" })
 
   .post(
     "/dislikes",
-    async ({ body, set }) => {
+    async ({ body, currentUserId, set }) => {
       const dislike = await interactionService.dislikeUser(
-        body.dislikerId,
+        currentUserId,
         body.dislikedId,
       );
       set.status = 201;
@@ -123,9 +126,9 @@ export const interactionRoutes = new Elysia({ name: "routes.interaction" })
   ) 
   .post(
     "/dislikes/rewind",
-    async ({ body, set }) => {
+    async ({ body, currentUserId, set }) => {
       const result = await interactionService.rewindDislike(
-        body.userId,
+        currentUserId,
         body.dislikedId,
       );
       set.status = 200;

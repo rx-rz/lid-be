@@ -2,8 +2,8 @@ import { Elysia, t } from "elysia";
 import { paymentService } from "./payment.services";
 import { stripeService } from "../../services/stripe.services";
 import Stripe from "stripe";
-import { clerkPlugin } from "elysia-clerk";
 import { loggers } from "../../utils/logger";
+import { authMiddleware } from "../../middleware/auth";
 import {
   rateLimitPresets,
   routeRateLimit,
@@ -81,11 +81,12 @@ export const paymentRoutes = new Elysia({})
       },
     },
   )
+  .use(authMiddleware)
   .post(
     "/addons/checkout",
-    async ({ body }) => {
+    async ({ body, currentUserId }) => {
       return await paymentService.createAddonCheckout(
-        body.userId,
+        currentUserId,
         body.packId,
         body.successUrl,
         body.cancelUrl,
@@ -106,9 +107,9 @@ export const paymentRoutes = new Elysia({})
   )
   .post(
     "/subscription",
-    async ({ body }) => {
+    async ({ body, currentUserId }) => {
       return await paymentService.createPaymentIntent(
-        body.userId,
+        currentUserId,
         body.priceId,
       );
     },
@@ -125,8 +126,8 @@ export const paymentRoutes = new Elysia({})
   )
   .get(
     "/status/:userId",
-    async ({ params: { userId } }) => {
-      return await paymentService.getPaymentStatus(userId);
+    async ({ currentUserId }) => {
+      return await paymentService.getPaymentStatus(currentUserId);
     },
     {
       params: t.Object({ userId: t.String() }),
@@ -135,8 +136,8 @@ export const paymentRoutes = new Elysia({})
   )
   .get(
     "/customer/:userId",
-    async ({ params: { userId } }) => {
-      return await paymentService.getCustomer(userId);
+    async ({ currentUserId }) => {
+      return await paymentService.getCustomer(currentUserId);
     },
     {
       params: t.Object({ userId: t.String() }),
@@ -144,12 +145,12 @@ export const paymentRoutes = new Elysia({})
     },
   )
   .group("", (app) =>
-    app.use(clerkPlugin()).post(
+    app.post(
       "/customer",
-      async ({ body }) => {
+      async ({ body, currentUserId }) => {
         try {
           return await paymentService.getOrCreateCustomer(
-            body.userId,
+            currentUserId,
             body.email,
           );
         } catch (error) {

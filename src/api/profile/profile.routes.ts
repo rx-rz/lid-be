@@ -1,13 +1,15 @@
 import { Elysia, t } from "elysia";
 import { profileService } from "./profile.services";
 import { InternalServerError, NotFoundError } from "../../middleware/error";
+import { authMiddleware } from "../../middleware/auth";
 
 export const profileRoutes = new Elysia({ prefix: "/profile" })
+  .use(authMiddleware)
   .post(
     "",
-    async ({ body, set }) => {
+    async ({ body, currentUserId, set }) => {
       const profile = await profileService.createProfile(
-        body.userId,
+        currentUserId,
         body.bio,
         body.interests,
       );
@@ -30,8 +32,8 @@ export const profileRoutes = new Elysia({ prefix: "/profile" })
   )
   .get(
     "/:userId",
-    async ({ params: { userId } }) => {
-      const profile = await profileService.getProfile(userId);
+    async ({ currentUserId }) => {
+      const profile = await profileService.getProfile(currentUserId);
       if (!profile) {
         throw new NotFoundError("Profile not found.", {
           code: "PROFILE_NOT_FOUND",
@@ -51,9 +53,9 @@ export const profileRoutes = new Elysia({ prefix: "/profile" })
   )
   .put(
     "/:userId",
-    async ({ params: { userId }, body }) => {
+    async ({ body, currentUserId }) => {
       const profile = await profileService.updateProfile(
-        userId,
+        currentUserId,
         body.bio,
         body.interests,
       );
@@ -79,8 +81,8 @@ export const profileRoutes = new Elysia({ prefix: "/profile" })
   )
   .delete(
     "/:userId",
-    async ({ params: { userId } }) => {
-      const profile = await profileService.deleteProfile(userId);
+    async ({ currentUserId }) => {
+      const profile = await profileService.deleteProfile(currentUserId);
       if (!profile) {
         throw new NotFoundError("Profile not found.", {
           code: "PROFILE_NOT_FOUND",

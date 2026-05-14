@@ -144,7 +144,17 @@ export const premiumService = {
     if (!updatedWallet) {
       throw new PaymentRequiredError(
         "You are out of Takeoff boosts. Please upgrade or buy more.",
-        { code: "INSUFFICIENT_BOOSTS" },
+        {
+          code: "INSUFFICIENT_BOOSTS",
+          details: [
+            {
+              message: "Takeoff boost allowance has been exhausted.",
+              feature: "boosts",
+              reason: "allowance_exhausted",
+              requiredPlan: "premium",
+            },
+          ],
+        },
       );
     }
 

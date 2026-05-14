@@ -4,13 +4,15 @@ import {
   rateLimitPresets,
   routeRateLimit,
 } from "../../config/rate-limits";
+import { authMiddleware } from "../../middleware/auth";
 
 export const boostRoutes = new Elysia({ prefix: "/boost" })
+  .use(authMiddleware)
   .use(routeRateLimit(rateLimitPresets.entitlementConsumption))
   .post(
     "/:userId",
-    async ({ params: { userId } }) => {
-      return await premiumService.boostUser(userId);
+    async ({ currentUserId }) => {
+      return await premiumService.boostUser(currentUserId);
     },
     {
       params: t.Object({ userId: t.String() }),

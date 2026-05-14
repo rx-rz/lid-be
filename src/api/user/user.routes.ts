@@ -1,5 +1,4 @@
 import { Elysia, t } from "elysia";
-import { clerkPlugin } from "elysia-clerk";
 
 import { userRepo } from "../../repo/user.repo";
 import { sanitizeFilteredUsersResult, userService } from "./user.services";
@@ -17,6 +16,7 @@ import {
 } from "../../config/rate-limits";
 import { ErrorResponseSchema, NotFoundError } from "../../middleware/error";
 import { fcmAdmin } from "../../services/fcm";
+import { authMiddleware } from "../../middleware/auth";
 /**
  * ---------------------------------------
  * SHARED RESPONSE SCHEMAS
@@ -30,7 +30,7 @@ import { fcmAdmin } from "../../services/fcm";
  */
 
 export const userRoutes = new Elysia({ name: "routes.user" })
-  .use(clerkPlugin())
+  .use(authMiddleware)
 
   /**
    * ---------------------------------------
@@ -50,9 +50,9 @@ export const userRoutes = new Elysia({ name: "routes.user" })
    */
   .post(
     "/user",
-    async ({ body, set }) => {
+    async ({ body, currentUserId, set }) => {
       const user = await userService.createUserProfile(
-        body.clerkId,
+        currentUserId,
         body.phone,
       );
 
@@ -80,8 +80,8 @@ export const userRoutes = new Elysia({ name: "routes.user" })
    */
   .patch(
     "/user/:id",
-    async ({ params: { id }, body }) => {
-      const updated = await userService.updateUser(id, {
+    async ({ body, currentUserId }) => {
+      const updated = await userService.updateUser(currentUserId, {
         ...body,
         lastLogin: body.lastLogin ? new Date(body.lastLogin) : undefined,
       });
@@ -152,8 +152,11 @@ export const userRoutes = new Elysia({ name: "routes.user" })
    */
   .patch(
     "/user/stream/:userId",
-    async ({ params: { userId }, body, set }) => {
-      const data = await userRepo.updateStreamToken(userId, body.streamToken);
+    async ({ body, currentUserId, set }) => {
+      const data = await userRepo.updateStreamToken(
+        currentUserId,
+        body.streamToken,
+      );
 
       set.status = 200;
       return {
@@ -183,8 +186,8 @@ export const userRoutes = new Elysia({ name: "routes.user" })
    */
   .delete(
     "/user/:id",
-    async ({ params: { id }, set }) => {
-      await userService.deleteUserAccount(id);
+    async ({ currentUserId, set }) => {
+      await userService.deleteUserAccount(currentUserId);
       set.status = 204;
     },
     {
@@ -205,8 +208,8 @@ export const userRoutes = new Elysia({ name: "routes.user" })
    */
   .get(
     "/user/:userId",
-    async ({ params: { userId } }) => {
-      const user = await userService.getUserDetails(userId);
+    async ({ currentUserId }) => {
+      const user = await userService.getUserDetails(currentUserId);
 
       if (!user) {
         throw new NotFoundError("User not found.", { code: "USER_NOT_FOUND" });
@@ -233,8 +236,8 @@ export const userRoutes = new Elysia({ name: "routes.user" })
    */
   .get(
     "/user/:userId/mutual-likes",
-    async ({ params: { userId } }) => {
-      const data = await interactionService.getMutualLikes(userId);
+    async ({ currentUserId }) => {
+      const data = await interactionService.getMutualLikes(currentUserId);
 
       return {
         mutualLikes: data,
@@ -280,9 +283,9 @@ export const userRoutes = new Elysia({ name: "routes.user" })
    */
   .put(
     "/fcm-token",
-    async ({ body }) => {
+    async ({ body, currentUserId }) => {
       await userService.registerPushToken({
-        userId: body.userId,
+        userId: currentUserId,
         token: body.fcmToken,
         provider: "fcm",
         platform: body.platform ?? "unknown",
@@ -317,9 +320,9 @@ export const userRoutes = new Elysia({ name: "routes.user" })
   )
   .put(
     "/push-token",
-    async ({ body }) => {
+    async ({ body, currentUserId }) => {
       await userService.registerPushToken({
-        userId: body.userId,
+        userId: currentUserId,
         token: body.token,
         provider: body.provider ?? "expo",
         platform: body.platform ?? "unknown",
@@ -355,9 +358,9 @@ export const userRoutes = new Elysia({ name: "routes.user" })
   )
   .delete(
     "/push-token",
-    async ({ body }) => {
+    async ({ body, currentUserId }) => {
       await userService.unregisterPushToken({
-        userId: body.userId,
+        userId: currentUserId,
         token: body.token,
       });
 
@@ -388,11 +391,11 @@ export const userRoutes = new Elysia({ name: "routes.user" })
   .use(routeRateLimit(rateLimitPresets.discovery))
   .get(
     "/users",
-    async ({ query }) => {
+    async ({ query, currentUserId }) => {
       const { radius, age, filters, minPhotos } = buildUserFilters(query);
 
       const result = await userService.getFilteredUsersList(
-        query.userId,
+        currentUserId,
         filters,
         radius,
         age,

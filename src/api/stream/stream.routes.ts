@@ -13,6 +13,7 @@ import {
   PaymentRequiredError,
   UnauthorizedError,
 } from "../../middleware/error";
+import { authMiddleware } from "../../middleware/auth";
 
 const expo = new Expo();
 
@@ -155,91 +156,106 @@ const parseVerifiedStreamWebhookBody = async (request: Request) => {
 };
 
 export const streamRoutes = new Elysia({ prefix: "/stream" })
-  .post("/token", ({ body }) => streamService.generateToken(body), {
-    body: t.Object({
-      userId: t.String(),
-      name: t.Optional(t.String()),
-      image: t.Optional(t.String()),
-      email: t.Optional(t.String()),
-    }),
-    detail: { tags: ["Chat"], summary: "Get Stream.io token" },
-  })
+  .group("", (app) =>
+    app
+      .use(authMiddleware)
+      .post("/token", ({ body, currentUserId }) => streamService.generateToken({
+        ...body,
+        userId: currentUserId,
+      }), {
+        body: t.Object({
+          userId: t.String(),
+          name: t.Optional(t.String()),
+          image: t.Optional(t.String()),
+          email: t.Optional(t.String()),
+        }),
+        detail: { tags: ["Chat"], summary: "Get Stream.io token" },
+      })
 
-  .get(
-    "/conversations/:userId",
-    async ({ params: { userId }, query }) => {
-      return streamService.getConversations({
-        userId,
-        cursor: query.cursor,
-        limit: query.limit === undefined ? undefined : Number(query.limit),
-      });
-    },
-    {
-      params: t.Object({ userId: t.String() }),
-      query: t.Object({
-        cursor: t.Optional(t.String()),
-        limit: t.Optional(t.Numeric()),
-      }),
-      detail: { tags: ["Chat"], summary: "Get Stream conversations" },
-    },
-  )
+      .get(
+        "/conversations/:userId",
+        async ({ currentUserId, query }) => {
+          return streamService.getConversations({
+            userId: currentUserId,
+            cursor: query.cursor,
+            limit: query.limit === undefined ? undefined : Number(query.limit),
+          });
+        },
+        {
+          params: t.Object({ userId: t.String() }),
+          query: t.Object({
+            cursor: t.Optional(t.String()),
+            limit: t.Optional(t.Numeric()),
+          }),
+          detail: { tags: ["Chat"], summary: "Get Stream conversations" },
+        },
+      )
 
-  .post(
-    "/call",
-    async ({ body }) => {
-      if (body.userId) {
-        const user = await userRepo.getUserById(body.userId);
+      .post(
+        "/call",
+        async ({ body, currentUserId }) => {
+          const user = await userRepo.getUserById(currentUserId);
 
-        const allowance = entitlementService.getSubscriptionAllowance(
-          user?.subscriptionType,
-          "videoCalls",
-        );
-
-        await premiumFeatureRepo.ensureSubscriptionAllowances(
-          body.userId,
-          resolveTier(user?.subscriptionType),
-        );
-
-        const consumed = await premiumFeatureRepo.consumeFeature(
-          body.userId,
-          "videoCalls",
-          { unlimited: allowance === "unlimited" },
-        );
-
-        if (!consumed) {
-          throw new PaymentRequiredError(
-            "You are out of Cruise calls. Please upgrade or buy more.",
-            { code: "INSUFFICIENT_CRUISE_CALLS" },
+          const allowance = entitlementService.getSubscriptionAllowance(
+            user?.subscriptionType,
+            "videoCalls",
           );
-        }
 
-        logger.info(
-          {
-            userId: body.userId,
-            feature: "videoCalls",
-            source: consumed.source,
-            remaining:
-              consumed.source === "add-on"
-                ? consumed.features.addOnVideoCallsRemaining
-                : consumed.features.videoCallsRemaining,
-          },
-          "usage consumed",
-        );
-      }
+          await premiumFeatureRepo.ensureSubscriptionAllowances(
+            currentUserId,
+            resolveTier(user?.subscriptionType),
+          );
 
-      return {
-        callId: body.callId,
-        type: body.type || "default",
-      };
-    },
-    {
-      body: t.Object({
-        callId: t.String(),
-        type: t.Optional(t.String()),
-        userId: t.Optional(t.String()),
-      }),
-      detail: { tags: ["Chat"], summary: "Setup call context" },
-    },
+          const consumed = await premiumFeatureRepo.consumeFeature(
+            currentUserId,
+            "videoCalls",
+            { unlimited: allowance === "unlimited" },
+          );
+
+          if (!consumed) {
+            throw new PaymentRequiredError(
+              "You are out of Cruise calls. Please upgrade or buy more.",
+              {
+                code: "INSUFFICIENT_CRUISE_CALLS",
+                details: [
+                  {
+                    message: "Cruise call allowance has been exhausted.",
+                    feature: "videoCalls",
+                    reason: "allowance_exhausted",
+                    requiredPlan: "premium",
+                  },
+                ],
+              },
+            );
+          }
+
+          logger.info(
+            {
+              userId: currentUserId,
+              feature: "videoCalls",
+              source: consumed.source,
+              remaining:
+                consumed.source === "add-on"
+                  ? consumed.features.addOnVideoCallsRemaining
+                  : consumed.features.videoCallsRemaining,
+            },
+            "usage consumed",
+          );
+
+          return {
+            callId: body.callId,
+            type: body.type || "default",
+          };
+        },
+        {
+          body: t.Object({
+            callId: t.String(),
+            type: t.Optional(t.String()),
+            userId: t.Optional(t.String()),
+          }),
+          detail: { tags: ["Chat"], summary: "Setup call context" },
+        },
+      ),
   )
 
   .post(

@@ -3,6 +3,7 @@ import { getCountryFromCoordinates } from "../../utils/location";
 import { InternalServerError, NotFoundError } from "../../middleware/error";
 
 export const locationService = {
+
   createLocation: async (
     userId: string,
     latitude: string,

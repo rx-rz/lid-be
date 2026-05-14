@@ -10,6 +10,9 @@ export type ErrorDetail = {
   expected?: string;
   code?: string;
   resetTime?: string;
+  feature?: string;
+  reason?: string;
+  requiredPlan?: string;
 };
 
 type AppErrorOptions = {
@@ -107,6 +110,9 @@ export const ErrorResponseSchema = t.Object({
         expected: t.Optional(t.String()),
         code: t.Optional(t.String()),
         resetTime: t.Optional(t.String()),
+        feature: t.Optional(t.String()),
+        reason: t.Optional(t.String()),
+        requiredPlan: t.Optional(t.String()),
       }),
     ),
   ),

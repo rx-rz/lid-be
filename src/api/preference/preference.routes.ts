@@ -1,7 +1,7 @@
 import { Elysia, t } from "elysia";
 import { preferenceService } from "./preference.services";
-import { clerkPlugin } from "elysia-clerk";
 import { InternalServerError, NotFoundError } from "../../middleware/error";
+import { authMiddleware } from "../../middleware/auth";
 
 const PreferenceSchema = t.Object({
   interests: t.Optional(t.Array(t.String())),
@@ -85,12 +85,12 @@ const CreatePreferenceSchema = t.Object({
 });
 
 export const preferenceRoutes = new Elysia({ prefix: "/preference" })
-  .use(clerkPlugin())
+  .use(authMiddleware)
   .post(
     "",
-    async ({ body, set }) => {
+    async ({ body, currentUserId, set }) => {
       const { userId, ...rest } = body;
-      const data = await preferenceService.create(userId, rest);
+      const data = await preferenceService.create(currentUserId, rest);
       if (!data) throw new InternalServerError("Preference not created.");
       set.status = "Created";
       return data;
@@ -102,8 +102,11 @@ export const preferenceRoutes = new Elysia({ prefix: "/preference" })
   )
   .patch(
     "/:userId",
-    async ({ params: { userId }, body, set }) => {
-      const updatedPreference = await preferenceService.update(userId, body);
+    async ({ body, currentUserId, set }) => {
+      const updatedPreference = await preferenceService.update(
+        currentUserId,
+        body,
+      );
       if (!updatedPreference) {
         throw new InternalServerError("Preference not updated.");
       }
@@ -121,8 +124,8 @@ export const preferenceRoutes = new Elysia({ prefix: "/preference" })
   )
   .get(
     "/:id",
-    async ({ params: { id } }) => {
-      const data = await preferenceService.get(id);
+    async ({ currentUserId }) => {
+      const data = await preferenceService.get(currentUserId);
       if (!data) {
         throw new NotFoundError("User preferences not found.", {
           code: "PREFERENCE_NOT_FOUND",

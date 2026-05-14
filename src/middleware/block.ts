@@ -4,10 +4,10 @@ import { blocksTable } from "../db/schema";
 import { db } from "../db/db";
 
 export const blockMiddleware = new Elysia({ name: "middleware.block" }).derive(
-  async ({ query }) => {
-    const currentUserId = query?.userId as string | undefined;
+  async ({ currentUserId, query }: any) => {
+    const actorId = currentUserId ?? (query?.userId as string | undefined);
 
-    if (!currentUserId) {
+    if (!actorId) {
       return { blockedUserIds: [] };
     }
 
@@ -16,14 +16,14 @@ export const blockMiddleware = new Elysia({ name: "middleware.block" }).derive(
       .from(blocksTable)
       .where(
         or(
-          eq(blocksTable.blockedId, currentUserId),
-          eq(blocksTable.blockerId, currentUserId),
+          eq(blocksTable.blockedId, actorId),
+          eq(blocksTable.blockerId, actorId),
         ),
       );
 
     const blockedUserIds = blockedList
       .map((rel) =>
-        rel.blockerId === currentUserId ? rel.blockedId : rel.blockerId,
+        rel.blockerId === actorId ? rel.blockedId : rel.blockerId,
       )
       .filter((id): id is string => id !== null);
 

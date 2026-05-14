@@ -65,13 +65,33 @@ const assertFeatureAvailableBeforeSwipe = async (
   if (feature === "superlikes") {
     throw new PaymentRequiredError(
       "You are out of Super Likes. Please upgrade or buy more.",
-      { code: "INSUFFICIENT_SUPERLIKES" },
+      {
+        code: "INSUFFICIENT_SUPERLIKES",
+        details: [
+          {
+            message: "Super Like allowance has been exhausted.",
+            feature: "superlikes",
+            reason: "allowance_exhausted",
+            requiredPlan: "premium",
+          },
+        ],
+      },
     );
   }
 
   throw new PaymentRequiredError(
     "You are out of Love Letters. Please upgrade or buy more.",
-    { code: "INSUFFICIENT_LOVE_LETTERS" },
+    {
+      code: "INSUFFICIENT_LOVE_LETTERS",
+      details: [
+        {
+          message: "Love Letter allowance has been exhausted.",
+          feature: "loveLetters",
+          reason: "allowance_exhausted",
+          requiredPlan: "first-class",
+        },
+      ],
+    },
   );
 };
 
@@ -293,7 +313,17 @@ export const interactionService = {
         if (!updatedWallet) {
           throw new PaymentRequiredError(
             "You are out of Super Likes. Please upgrade or buy more.",
-            { code: "INSUFFICIENT_SUPERLIKES" },
+            {
+              code: "INSUFFICIENT_SUPERLIKES",
+              details: [
+                {
+                  message: "Super Like allowance has been exhausted.",
+                  feature: "superlikes",
+                  reason: "allowance_exhausted",
+                  requiredPlan: "premium",
+                },
+              ],
+            },
           );
         }
 
@@ -317,7 +347,17 @@ export const interactionService = {
         if (!updatedWallet) {
           throw new PaymentRequiredError(
             "You are out of Love Letters. Please upgrade or buy more.",
-            { code: "INSUFFICIENT_LOVE_LETTERS" },
+            {
+              code: "INSUFFICIENT_LOVE_LETTERS",
+              details: [
+                {
+                  message: "Love Letter allowance has been exhausted.",
+                  feature: "loveLetters",
+                  reason: "allowance_exhausted",
+                  requiredPlan: "first-class",
+                },
+              ],
+            },
           );
         }
 
@@ -353,7 +393,7 @@ export const interactionService = {
       );
 
       if (!mutualLike) {
-        return { like };
+        return { like, matched: false };
       }
 
       const encounter = await matchRepo.getRouletteEncounter(likerId, likedId);
@@ -364,14 +404,14 @@ export const interactionService = {
         const mutualLikeIsAfter = mutualLike.likedAt! >= encounterEnd;
 
         if (!currentLikeIsAfter || !mutualLikeIsAfter) {
-          return { like };
+          return { like, matched: false };
         }
       }
 
       const newMatch = await matchRepo.createMatch(likerId, likedId, tx);
       if (!newMatch) throw new InternalServerError("Failed to create match.");
 
-      return { like, match: newMatch };
+      return { like, matched: true, match: newMatch };
     });
 
     if (result.match) {
@@ -387,7 +427,10 @@ export const interactionService = {
 
       logger.info({ likerId, likedId }, "It's a match!");
 
-      return result;
+      return {
+        ...result,
+        matchedUser: buildMatchedUser(likedExists),
+      };
     }
 
     void sendLikeNotification(
@@ -525,7 +568,17 @@ export const interactionService = {
     if (!updatedWallet) {
       throw new PaymentRequiredError(
         "You are out of Recalls. Please upgrade or buy more.",
-        { code: "INSUFFICIENT_RECALLS" },
+        {
+          code: "INSUFFICIENT_RECALLS",
+          details: [
+            {
+              message: "Recall allowance has been exhausted.",
+              feature: "recalls",
+              reason: "allowance_exhausted",
+              requiredPlan: "premium",
+            },
+          ],
+        },
       );
     }
 
@@ -547,3 +600,10 @@ export const interactionService = {
     };
   },
 };
+
+const buildMatchedUser = (user: any) => ({
+  id: user.id,
+  displayName: user.displayName ?? null,
+  name: user.displayName ?? null,
+  image: user.image ?? null,
+});

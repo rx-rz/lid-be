@@ -1,12 +1,15 @@
 import { Elysia, t } from "elysia";
 import { locationService } from "./location.services";
 import { InternalServerError } from "../../middleware/error";
+import { authMiddleware } from "../../middleware/auth";
 
-export const locationRoutes = new Elysia({ prefix: "/location" }).post(
-  "/",
-  async ({ body, set }) => {
+export const locationRoutes = new Elysia({ prefix: "/location" })
+  .use(authMiddleware)
+  .post(
+    "/",
+    async ({ body, currentUserId, set }) => {
       const data = await locationService.createLocation(
-        body.userId,
+        currentUserId,
         body.latitude,
         body.longitude,
       );
@@ -15,13 +18,13 @@ export const locationRoutes = new Elysia({ prefix: "/location" }).post(
       }
       set.status = 201;
       return data;
-  },
-  {
-    body: t.Object({
-      userId: t.String(),
-      latitude: t.String(),
-      longitude: t.String(),
-    }),
-    detail: { tags: ["Location"], summary: "Create User Location" },
-  },
-);
+    },
+    {
+      body: t.Object({
+        userId: t.String(),
+        latitude: t.String(),
+        longitude: t.String(),
+      }),
+      detail: { tags: ["Location"], summary: "Create User Location" },
+    },
+  );
