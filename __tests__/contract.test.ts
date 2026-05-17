@@ -126,10 +126,15 @@ let streamService: typeof import("../src/api/stream/stream.services")["streamSer
 let matchService: typeof import("../src/api/match/match.services")["matchService"];
 let matchRepo: typeof import("../src/repo/match.repo")["matchRepo"];
 let interactionRepo: typeof import("../src/repo/interaction.repo")["interactionRepo"];
+let rouletteRepo: typeof import("../src/repo/roulette.repo")["rouletteRepo"];
 let userRepo: typeof import("../src/repo/user.repo")["userRepo"];
 let premiumFeatureRepo: typeof import("../src/repo/premium.repo")["premiumFeatureRepo"];
 let dbModule: typeof import("../src/db/db");
 let actualLikeUser: typeof import("../src/api/interaction/interaction.services")["interactionService"]["likeUser"];
+let actualGetReceivedLikes: typeof import("../src/api/interaction/interaction.services")["interactionService"]["getReceivedLikes"];
+let actualGetFilteredUsersList: typeof import("../src/api/user/user.services")["userService"]["getFilteredUsersList"];
+let actualGetConversations: typeof import("../src/api/stream/stream.services")["streamService"]["getConversations"];
+let actualFindRouletteMatch: typeof import("../src/api/roulette/roulette.services")["rouletteService"]["findMatch"];
 
 const jsonRequest = (path: string, init: RequestInit = {}) =>
   new Request(`http://localhost${path}`, {
@@ -162,6 +167,7 @@ beforeAll(async () => {
     import("../src/api/match/match.services"),
     import("../src/repo/match.repo"),
     import("../src/repo/interaction.repo"),
+    import("../src/repo/roulette.repo"),
     import("../src/repo/user.repo"),
     import("../src/repo/premium.repo"),
     import("../src/db/db"),
@@ -190,10 +196,15 @@ beforeAll(async () => {
   matchService = modules[17].matchService;
   matchRepo = modules[18].matchRepo;
   interactionRepo = modules[19].interactionRepo;
-  userRepo = modules[20].userRepo;
-  premiumFeatureRepo = modules[21].premiumFeatureRepo;
-  dbModule = modules[22];
+  rouletteRepo = modules[20].rouletteRepo;
+  userRepo = modules[21].userRepo;
+  premiumFeatureRepo = modules[22].premiumFeatureRepo;
+  dbModule = modules[23];
   actualLikeUser = interactionService.likeUser;
+  actualGetReceivedLikes = interactionService.getReceivedLikes;
+  actualGetFilteredUsersList = userService.getFilteredUsersList;
+  actualGetConversations = streamService.getConversations;
+  actualFindRouletteMatch = rouletteService.findMatch;
 });
 
 beforeEach(() => {
@@ -1000,6 +1011,100 @@ describe("contract shapes", () => {
     expect(interactionRepo.createLike).not.toHaveBeenCalled();
   });
 
+  test("duplicate love letter likes use a specific conflict code", async () => {
+    interactionService.likeUser = actualLikeUser;
+
+    userRepo.getUserDetailsById = mock(async (userId: string) => ({
+      id: userId,
+      displayName: userId,
+      email: `${userId}@example.test`,
+      birthday: "1995-01-01",
+      onboardingPage: null,
+      fcmToken: null,
+      subscription: "first-class",
+      image: null,
+    })) as any;
+    interactionRepo.getExistingLike = mock(async () => ({
+      likerId: "u1",
+      likedId: "u2",
+      superLike: false,
+      isLoveLetter: true,
+    })) as any;
+
+    await expect(
+      interactionService.likeUser("u1", "u2", false, true),
+    ).rejects.toMatchObject({
+      code: "LOVE_LETTER_ALREADY_EXISTS",
+      statusCode: 409,
+    });
+  });
+
+  test("unpaid received likes return privacy-safe placeholders", async () => {
+    interactionService.getReceivedLikes = actualGetReceivedLikes;
+    userRepo.getUserById = mock(async () => ({
+      id: "u1",
+      subscriptionType: "economy",
+    })) as any;
+    interactionRepo.getReceivedLikes = mock(async () => [
+      {
+        likedId: "liker_1",
+        likedAt: new Date("2026-05-01T00:00:00.000Z"),
+        superLike: true,
+        isLoveLetter: false,
+        images: ["https://cdn.test/private.jpg"],
+        user: {
+          id: "liker_1",
+          name: "Private",
+          email: "private@example.test",
+          birthday: "1995-01-01",
+        },
+      },
+    ]) as any;
+
+    expect(await interactionService.getReceivedLikes("u1")).toEqual([
+      {
+        likedId: undefined,
+        likedAt: new Date("2026-05-01T00:00:00.000Z"),
+        superLike: true,
+        isLoveLetter: false,
+        images: [],
+        user: null,
+        hidden: true,
+        revealRequiredPlan: "premium",
+      },
+    ]);
+  });
+
+  test("unpaid advanced discovery filters return paid feature errors", async () => {
+    userService.getFilteredUsersList = actualGetFilteredUsersList;
+    userRepo.getUserById = mock(async () => ({
+      id: "u1",
+      subscriptionType: "economy",
+    })) as any;
+
+    await expect(
+      userService.getFilteredUsersList(
+        "u1",
+        {
+          currentUserId: "u1",
+          smoking: true,
+        },
+        [0, 100],
+        [18, 40],
+      ),
+    ).rejects.toMatchObject({
+      code: "ADVANCED_FILTERS_REQUIRED",
+      statusCode: 402,
+      details: [
+        expect.objectContaining({
+          path: "smoking",
+          feature: "advancedFilters",
+          requiredPlan: "premium",
+        }),
+      ],
+    });
+  });
+
   test("typebox validation errors use normalized details", async () => {
     const response = await app.handle(
       jsonRequest("/api/v1/likes", {
@@ -1272,6 +1377,66 @@ describe("contract shapes", () => {
     });
   });
 
+  test("roulette start consumes Cruise allowance for new sessions", async () => {
+    rouletteService.findMatch = actualFindRouletteMatch;
+    userRepo.getUserById = mock(async () => ({
+      id: "u1",
+      subscriptionType: "economy",
+    })) as any;
+    premiumFeatureRepo.ensureSubscriptionAllowances = mock(async () => ({
+      userId: "u1",
+      videoCallsRemaining: 2,
+    })) as any;
+    premiumFeatureRepo.consumeFeature = mock(async () => ({
+      source: "subscription",
+      features: {
+        userId: "u1",
+        videoCallsRemaining: 1,
+        addOnVideoCallsRemaining: 0,
+      },
+    })) as any;
+    rouletteRepo.findSessionByUserId = mock(async () => null) as any;
+    rouletteRepo.upsertWaitingSession = mock(async () => ({
+      id: "session_1",
+      userId: "u1",
+      status: "waiting",
+      previousPartners: [],
+    })) as any;
+    rouletteRepo.findCompatiblePartner = mock(async () => null) as any;
+
+    await expect(rouletteService.findMatch("u1")).resolves.toMatchObject({
+      matched: false,
+    });
+    expect(premiumFeatureRepo.consumeFeature).toHaveBeenLastCalledWith(
+      "u1",
+      "videoCalls",
+      { unlimited: false },
+    );
+  });
+
+  test("roulette start rejects exhausted Cruise allowance before queueing", async () => {
+    rouletteService.findMatch = actualFindRouletteMatch;
+    userRepo.getUserById = mock(async () => ({
+      id: "u1",
+      subscriptionType: "economy",
+    })) as any;
+    premiumFeatureRepo.ensureSubscriptionAllowances = mock(async () => ({
+      userId: "u1",
+      videoCallsRemaining: 0,
+    })) as any;
+    premiumFeatureRepo.consumeFeature = mock(async () => null) as any;
+    rouletteRepo.findSessionByUserId = mock(async () => null) as any;
+    rouletteRepo.upsertWaitingSession = mock(async () => {
+      throw new Error("should not queue");
+    }) as any;
+
+    await expect(rouletteService.findMatch("u1")).rejects.toMatchObject({
+      code: "INSUFFICIENT_CRUISE_SESSIONS",
+      statusCode: 402,
+    });
+    expect(rouletteRepo.upsertWaitingSession).not.toHaveBeenCalled();
+  });
+
   test("matches route remains mounted", async () => {
     const response = await app.handle(jsonRequest("/api/v1/matches/u1"));
 
@@ -1347,6 +1512,91 @@ describe("contract shapes", () => {
       cursor: undefined,
       limit: 1,
     });
+  });
+
+  test("stream conversations include backend chat access metadata", async () => {
+    streamService.getConversations = actualGetConversations;
+    userRepo.checkUserExists = mock(async () => true) as any;
+    userRepo.getConversationProfilesByIds = mock(async () => ({
+      u2: {
+        id: "u2",
+        displayName: "DB Name",
+        images: [{ imageUrl: "https://cdn.test/u2.png", order: 1 }],
+      },
+    })) as any;
+    matchRepo.getMatchBetweenUsers = mock(async () => ({
+      id: "match_1",
+      user1Id: "u1",
+      user2Id: "u2",
+    })) as any;
+    interactionRepo.getExistingLoveLetterLike = mock(async () => null) as any;
+    (queryChannelsRequestMock as any).mockImplementationOnce(async () => [
+      {
+        cid: "messaging:u1-u2",
+        id: "u1-u2",
+        type: "messaging",
+        members: [
+          { user_id: "u1", user: { id: "u1", name: "Amina" } },
+          { user_id: "u2", user: { id: "u2", name: "Kwame" } },
+        ],
+        messages: [{ id: "msg-1", text: "hello" }],
+      },
+    ]);
+
+    expect(await streamService.getConversations({ userId: "u1" })).toEqual({
+      conversations: [
+        {
+          cid: "messaging:u1-u2",
+          id: "u1-u2",
+          type: "messaging",
+          participant: {
+            id: "u2",
+            name: "Kwame",
+            displayName: "DB Name",
+            imageUrl: "https://cdn.test/u2.png",
+          },
+          lastMessage: { id: "msg-1", text: "hello" },
+          access: {
+            isMatched: true,
+            hasLoveLetter: false,
+            canChat: true,
+            chatUnlockReason: "match",
+            matchId: "match_1",
+          },
+        },
+      ],
+      nextCursor: null,
+    });
+  });
+
+  test("stream call setup rejects unmatched recipients before consuming allowance", async () => {
+    matchRepo.getMatchBetweenUsers = mock(async () => null) as any;
+    premiumFeatureRepo.consumeFeature = mock(async () => {
+      throw new Error("should not consume");
+    }) as any;
+
+    const response = await app.handle(
+      jsonRequest("/api/v1/stream/call", {
+        method: "POST",
+        body: JSON.stringify({
+          callId: "call_123",
+          recipientId: "u2",
+        }),
+      }),
+    );
+
+    expect(response.status).toBe(403);
+    expect(await response.json()).toMatchObject({
+      status: "fail",
+      code: "CALL_REQUIRES_MATCH",
+      details: [
+        {
+          feature: "chat",
+          reason: "match_required",
+        },
+      ],
+    });
+    expect(premiumFeatureRepo.consumeFeature).not.toHaveBeenCalled();
   });
 
   test("stream webhooks verify the raw body before parsing", async () => {

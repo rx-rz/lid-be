@@ -80,6 +80,26 @@ export const matchRepo = {
         userActivityTable.userId,
       );
   },
+  getMatchBetweenUsers: async (
+    user1Id: string,
+    user2Id: string,
+    tx?: DrizzleDB,
+  ) => {
+    const dbInstance = withDb(tx);
+    const normalized = matchRepo.normalizePair(user1Id, user2Id);
+    const [match] = await dbInstance
+      .select()
+      .from(matchesTable)
+      .where(
+        and(
+          eq(matchesTable.user1Id, normalized.user1Id),
+          eq(matchesTable.user2Id, normalized.user2Id),
+        ),
+      )
+      .limit(1);
+
+    return match ?? null;
+  },
   getRouletteEncounter: async (user1Id: string, user2Id: string) => {
     const [encounter] = await db
       .select({ endedAt: rouletteMatchesTable.endedAt })

@@ -39,6 +39,25 @@ export const interactionRepo = {
       .returning();
     return like;
   },
+  getExistingLoveLetterLike: async (
+    likerId: string,
+    likedId: string,
+    tx?: DrizzleDB,
+  ) => {
+    const dbInstance = withDb(tx);
+    const [like] = await dbInstance
+      .select()
+      .from(likesTable)
+      .where(
+        and(
+          eq(likesTable.likerId, likerId),
+          eq(likesTable.likedId, likedId),
+          eq(likesTable.isLoveLetter, true),
+        ),
+      )
+      .limit(1);
+    return like;
+  },
 
   getExistingDislike: async (
     dislikerId: string,

@@ -1,7 +1,8 @@
-import { eq } from "drizzle-orm";
-import { db } from "../../db/db";
-import { preferencesTable } from "../../db/schema";
+import { PaymentRequiredError } from "../../middleware/error";
+import { premiumFeatureRepo } from "../../repo/premium.repo";
 import { rouletteRepo } from "../../repo/roulette.repo";
+import { userRepo } from "../../repo/user.repo";
+import { entitlementService, resolveTier } from "../../services/entitlements";
 import { loggers } from "../../utils/logger";
 
 const MATCH_DURATION_MS = 2 * 60 * 1000;
@@ -66,6 +67,57 @@ const scheduleMatchEnd = (matchId: string, endTime: Date) => {
   }, timeUntilEnd);
 };
 
+const consumeCruiseAllowance = async (userId: string) => {
+  const user = await userRepo.getUserById(userId);
+  const allowance = entitlementService.getSubscriptionAllowance(
+    user?.subscriptionType,
+    "videoCalls",
+  );
+
+  await premiumFeatureRepo.ensureSubscriptionAllowances(
+    userId,
+    resolveTier(user?.subscriptionType),
+  );
+
+  const consumed = await premiumFeatureRepo.consumeFeature(
+    userId,
+    "videoCalls",
+    { unlimited: allowance === "unlimited" },
+  );
+
+  if (!consumed) {
+    throw new PaymentRequiredError(
+      "You are out of Cruise sessions. Please upgrade or buy more.",
+      {
+        code: "INSUFFICIENT_CRUISE_SESSIONS",
+        details: [
+          {
+            message: "Cruise session allowance has been exhausted.",
+            feature: "videoCalls",
+            reason: "allowance_exhausted",
+            requiredPlan: "premium",
+          },
+        ],
+      },
+    );
+  }
+
+  loggers.roulette.info(
+    {
+      userId,
+      feature: "videoCalls",
+      source: consumed.source,
+      remaining:
+        consumed.source === "add-on"
+          ? consumed.features.addOnVideoCallsRemaining
+          : consumed.features.videoCallsRemaining,
+    },
+    "cruise usage consumed",
+  );
+
+  return consumed;
+};
+
 export const rouletteService = {
   findMatch: async (userId: string, genderPreference?: string) => {
     const existing = await rouletteRepo.findSessionByUserId(userId);
@@ -111,13 +163,9 @@ export const rouletteService = {
       }
     }
 
-    const previousPartners = existing?.previousPartners || [];
-    const userPreferences = await db
-      .select({ lookingToDate: preferencesTable.lookingToDate })
-      .from(preferencesTable)
-      .where(eq(preferencesTable.userId, userId))
-      .limit(1);
+    await consumeCruiseAllowance(userId);
 
+    const previousPartners = existing?.previousPartners || [];
     const session = await rouletteRepo.upsertWaitingSession(
       userId,
       previousPartners,

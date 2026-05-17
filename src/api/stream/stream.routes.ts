@@ -5,11 +5,13 @@ import { streamService } from "./stream.services";
 import { streamClient } from "../../services/stream.services";
 import { fcmAdmin } from "../../services/fcm";
 import { logger } from "../../utils/logger";
+import { matchRepo } from "../../repo/match.repo";
 import { userRepo } from "../../repo/user.repo";
 import { entitlementService, resolveTier } from "../../services/entitlements";
 import { premiumFeatureRepo } from "../../repo/premium.repo";
 import {
   BadRequestError,
+  ForbiddenError,
   PaymentRequiredError,
   UnauthorizedError,
 } from "../../middleware/error";
@@ -194,6 +196,33 @@ export const streamRoutes = new Elysia({ prefix: "/stream" })
       .post(
         "/call",
         async ({ body, currentUserId }) => {
+          if (body.recipientId) {
+            if (body.recipientId === currentUserId) {
+              throw new BadRequestError("Call recipient must be another user.", {
+                code: "INVALID_CALL_RECIPIENT",
+              });
+            }
+
+            const match = await matchRepo.getMatchBetweenUsers(
+              currentUserId,
+              body.recipientId,
+            );
+
+            if (!match) {
+              throw new ForbiddenError("Calls require a mutual match.", {
+                code: "CALL_REQUIRES_MATCH",
+                details: [
+                  {
+                    message:
+                      "A Love Letter does not unlock normal chat or calls before a mutual match.",
+                    feature: "chat",
+                    reason: "match_required",
+                  },
+                ],
+              });
+            }
+          }
+
           const user = await userRepo.getUserById(currentUserId);
 
           const allowance = entitlementService.getSubscriptionAllowance(
@@ -245,6 +274,9 @@ export const streamRoutes = new Elysia({ prefix: "/stream" })
           return {
             callId: body.callId,
             type: body.type || "default",
+            recipientId: body.recipientId ?? null,
+            canChat: Boolean(body.recipientId),
+            chatUnlockReason: body.recipientId ? "match" : null,
           };
         },
         {
@@ -252,6 +284,7 @@ export const streamRoutes = new Elysia({ prefix: "/stream" })
             callId: t.String(),
             type: t.Optional(t.String()),
             userId: t.Optional(t.String()),
+            recipientId: t.Optional(t.String()),
           }),
           detail: { tags: ["Chat"], summary: "Setup call context" },
         },

@@ -269,9 +269,17 @@ export const interactionService = {
     );
 
     if (existingLike) {
-      throw new ConflictError("Like already exists.", {
-        code: "LIKE_ALREADY_EXISTS",
-      });
+      throw new ConflictError(
+        existingLike.isLoveLetter || isLoveLetter
+          ? "Love Letter already exists for this recipient."
+          : "Like already exists.",
+        {
+          code:
+            existingLike.isLoveLetter || isLoveLetter
+              ? "LOVE_LETTER_ALREADY_EXISTS"
+              : "LIKE_ALREADY_EXISTS",
+        },
+      );
     }
 
     const existingDislike = await interactionRepo.getExistingDislike(
@@ -508,8 +516,25 @@ export const interactionService = {
 
   getReceivedLikes: async (userId: string) => {
     const user = await userRepo.getUserById(userId);
+    const entitlements = entitlementService.getEntitlementsForTier(
+      user?.subscriptionType,
+    );
     const limit = entitlementService.getMyLikesLimit(user?.subscriptionType);
     const receivedLikes = await interactionRepo.getReceivedLikes(userId);
+
+    if (!entitlements.canSeeWhoLikedMe) {
+      return receivedLikes.map((like) => ({
+        likedId: undefined,
+        likedAt: like.likedAt,
+        superLike: like.superLike,
+        isLoveLetter: like.isLoveLetter,
+        images: [],
+        user: null,
+        hidden: true,
+        revealRequiredPlan: "premium",
+      }));
+    }
+
     const visibleLikes =
       limit === false ? receivedLikes : receivedLikes.slice(0, limit);
 

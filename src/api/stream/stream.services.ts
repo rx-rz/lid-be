@@ -1,5 +1,7 @@
 import { StreamClient } from "@stream-io/node-sdk";
 import { BadRequestError, InternalServerError } from "../../middleware/error";
+import { interactionRepo } from "../../repo/interaction.repo";
+import { matchRepo } from "../../repo/match.repo";
 import { userRepo, type UserConversationProfile } from "../../repo/user.repo";
 import { streamClient } from "../../services/stream.services";
 import { decodeCursor, encodeCursor } from "../../utils/cursor";
@@ -34,6 +36,29 @@ type ConversationParticipant = {
   name: string | null;
   displayName: string | null;
   imageUrl: string | null;
+};
+
+const getConversationAccess = async (userId: string, participantId: string) => {
+  const [match, loveLetterSent, loveLetterReceived] = await Promise.all([
+    matchRepo.getMatchBetweenUsers(userId, participantId),
+    interactionRepo.getExistingLoveLetterLike(userId, participantId),
+    interactionRepo.getExistingLoveLetterLike(participantId, userId),
+  ]);
+
+  const hasMatch = Boolean(match);
+  const hasLoveLetter = Boolean(loveLetterSent || loveLetterReceived);
+
+  return {
+    isMatched: hasMatch,
+    hasLoveLetter,
+    canChat: hasMatch,
+    chatUnlockReason: hasMatch
+      ? "match"
+      : hasLoveLetter
+        ? "love_letter_pending_match"
+        : null,
+    matchId: match?.id ?? null,
+  };
 };
 
 const clampLimit = (limit?: number) => {
@@ -159,24 +184,35 @@ export const streamService = {
     const profilesById =
       await userRepo.getConversationProfilesByIds(participantIds);
 
-    const conversations = channels.map((channel: any, index: number) => {
-      const participantMember = otherMembersByChannel[index];
-      const participantId = participantMember
-        ? getMemberUserId(participantMember)
-        : "";
-      const participant = buildParticipant(
-        participantMember,
-        profilesById[participantId],
-      );
+    const conversations = await Promise.all(
+      channels.map(async (channel: any, index: number) => {
+        const participantMember = otherMembersByChannel[index];
+        const participantId = participantMember
+          ? getMemberUserId(participantMember)
+          : "";
+        const participant = buildParticipant(
+          participantMember,
+          profilesById[participantId],
+        );
 
-      return {
-        cid: channel.cid,
-        id: channel.id,
-        type: channel.type,
-        participant,
-        lastMessage: getLatestMessage(channel.messages ?? []),
-      };
-    });
+        return {
+          cid: channel.cid,
+          id: channel.id,
+          type: channel.type,
+          participant,
+          lastMessage: getLatestMessage(channel.messages ?? []),
+          access: participantId
+            ? await getConversationAccess(data.userId, participantId)
+            : {
+                isMatched: false,
+                hasLoveLetter: false,
+                canChat: false,
+                chatUnlockReason: null,
+                matchId: null,
+              },
+        };
+      }),
+    );
 
     return {
       conversations,

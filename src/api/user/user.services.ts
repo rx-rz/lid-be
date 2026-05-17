@@ -14,6 +14,7 @@ import {
   ConflictError,
   InternalServerError,
   NotFoundError,
+  PaymentRequiredError,
 } from "../../middleware/error";
 
 import {
@@ -345,6 +346,61 @@ const BASIC_DISCOVERY_FILTERS = new Set<keyof GetUsersFilters>([
   "country",
 ]);
 
+const ADVANCED_DISCOVERY_FILTER_LABELS: Partial<
+  Record<keyof GetUsersFilters, string>
+> = {
+  activity: "Just joined",
+  smoking: "Smoking",
+  drinking: "Drinking",
+  ethnicity: "Ethnicity",
+  educationLevel: "Education",
+  lookingFor: "Looking for",
+  height: "Height",
+  zodiac: "Zodiac",
+  familyPlans: "Family plans",
+  hasBio: "Has bio",
+  workoutFrequency: "Workout frequency",
+  personality: "Personality",
+  language: "Language",
+  bodyType: "Body type",
+  loveLanguage: "Love language",
+  opennessToLongDistance: "Open to long distance",
+  willingToRelocate: "Willing to relocate",
+  religion: "Religion",
+  pets: "Pets",
+  sexuality: "Sexuality",
+  dietaryPreference: "Dietary preference",
+  sleepingHabits: "Sleeping habits",
+  travelPlans: "Travel plans",
+  relationshipStatus: "Relationship status",
+};
+
+const isProvidedFilterValue = (value: unknown) => {
+  if (value === undefined || value === null) return false;
+  if (Array.isArray(value)) return value.length > 0;
+  return true;
+};
+
+export const getRequestedPaidDiscoveryFilters = (
+  filters: GetUsersFilters,
+  minPhotos?: number,
+) => {
+  const requested = Object.entries(ADVANCED_DISCOVERY_FILTER_LABELS)
+    .filter(([key]) =>
+      isProvidedFilterValue(filters[key as keyof GetUsersFilters]),
+    )
+    .map(([key, label]) => ({
+      key,
+      label: label ?? key,
+    }));
+
+  if (minPhotos !== undefined) {
+    requested.push({ key: "minPhotos", label: "Minimum photos" });
+  }
+
+  return requested;
+};
+
 const downgradeAdvancedFilters = (
   filters: GetUsersFilters,
 ): GetUsersFilters => {
@@ -431,15 +487,33 @@ export const userService = {
     minPhotos?: number,
   ): Promise<FilteredUsersResult> => {
     const currentUser = await userRepo.getUserById(currentUserId);
-    const currentPreference =
-      await preferenceRepo.getPreferenceByUserId(currentUserId);
     const canUseAdvancedFilters = entitlementService.hasAdvancedFilters(
       currentUser?.subscriptionType,
     );
+    const paidFilters = getRequestedPaidDiscoveryFilters(filters, minPhotos);
+
+    if (!canUseAdvancedFilters && paidFilters.length > 0) {
+      throw new PaymentRequiredError(
+        "Advanced filters require a paid plan.",
+        {
+          code: "ADVANCED_FILTERS_REQUIRED",
+          details: paidFilters.map((filter) => ({
+            path: filter.key,
+            message: `${filter.label} is a paid discovery filter.`,
+            feature: "advancedFilters",
+            reason: "paid_feature",
+            requiredPlan: "premium",
+          })),
+        },
+      );
+    }
+
     const effectiveFilters = canUseAdvancedFilters
       ? filters
       : downgradeAdvancedFilters(filters);
     const effectiveMinPhotos = canUseAdvancedFilters ? minPhotos : undefined;
+    const currentPreference =
+      await preferenceRepo.getPreferenceByUserId(currentUserId);
 
     // STEP 1: origin
     const currentLocation = await userRepo.getUserLocation(currentUserId);
