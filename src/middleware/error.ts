@@ -237,7 +237,7 @@ const normalizeKnownPlainError = (error: any): AppError | null => {
     ),
     INSUFFICIENT_BOOSTS: new PaymentRequiredError(
       "You are out of Takeoff boosts. Please upgrade or buy more.",
-      { code: "INSUFFICIENT_BOOSTS", cause: error },
+      { code: "INSUFFICIENT_BOOST_SESSIONS", cause: error },
     ),
     USER_NO_CUSTOMER_ID: new BadRequestError("User has no Stripe customer ID.", {
       code: "USER_NO_CUSTOMER_ID",

@@ -145,7 +145,7 @@ export const premiumService = {
       throw new PaymentRequiredError(
         "You are out of Takeoff boosts. Please upgrade or buy more.",
         {
-          code: "INSUFFICIENT_BOOSTS",
+          code: "INSUFFICIENT_BOOST_SESSIONS",
           details: [
             {
               message: "Takeoff boost allowance has been exhausted.",

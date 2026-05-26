@@ -1377,6 +1377,26 @@ describe("contract shapes", () => {
     });
   });
 
+  test("boost denial returns insufficient boost sessions code", async () => {
+    const { PaymentRequiredError } = await import("../src/middleware/error");
+    premiumService.boostUser = mock(async () => {
+      throw new PaymentRequiredError(
+        "You are out of Takeoff boosts. Please upgrade or buy more.",
+        { code: "INSUFFICIENT_BOOST_SESSIONS" },
+      );
+    }) as any;
+
+    const response = await app.handle(
+      jsonRequest("/api/v1/boost/u1", { method: "POST" }),
+    );
+
+    expect(response.status).toBe(402);
+    expect(await response.json()).toMatchObject({
+      status: "fail",
+      code: "INSUFFICIENT_BOOST_SESSIONS",
+    });
+  });
+
   test("roulette start consumes Cruise allowance for new sessions", async () => {
     rouletteService.findMatch = actualFindRouletteMatch;
     userRepo.getUserById = mock(async () => ({
